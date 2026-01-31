@@ -216,18 +216,16 @@ def process_answer(transcription: str):
             'content': feedback_message
         })
         
-        if st.session_state.voice_enabled:
-            speak_text = feedback_message.replace('**', '').replace('💡', '').replace('🎉', '').replace('---', '')
-            audio_bytes, error = text_to_speech(speak_text)
-            if not error:
-                st.session_state.current_audio = audio_bytes
-        
     except Exception as e:
-        st.error(f"Error processing answer: {str(e)}")
+        st.session_state.messages.append({
+            'role': 'assistant',
+            'content': f"⚠️ There was an error evaluating your response. Please try again.\n\nError: {str(e)}"
+        })
+        st.session_state.answers.pop()
+        st.session_state.awaiting_answer = True
     
-    st.session_state.processing = False
-    st.session_state.show_transcription = False
-    st.session_state.last_transcription = ''
+    finally:
+        st.session_state.processing = False
 
 
 def render_chat():
@@ -239,23 +237,33 @@ def render_chat():
 
 def render_response_input():
     """Render the response input controls."""
-    if not st.session_state.awaiting_answer or st.session_state.processing:
+    if st.session_state.processing:
+        st.markdown("---")
+        st.spinner("Processing your answer...")
+        return
+    
+    if not st.session_state.awaiting_answer:
         return
     
     st.markdown("---")
     st.markdown("### ✍️ Your Response")
     st.markdown(f"**Question {st.session_state.current_question_index} of {TOTAL_QUESTIONS}**")
     
+    answer_key = f"answer_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+    
     text_answer = st.text_area(
         "Type your answer here",
-        key=f"text_answer_q{st.session_state.current_question_index}_{len(st.session_state.answers)}",
+        key=answer_key,
         height=150,
         placeholder="Take your time and provide a detailed response..."
     )
     
-    if st.button("📤 Submit Answer", type="primary", key=f"submit_{st.session_state.current_question_index}"):
+    submit_key = f"submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+    
+    if st.button("📤 Submit Answer", type="primary", key=submit_key):
         if text_answer.strip():
-            process_answer(text_answer)
+            with st.spinner("Evaluating your response..."):
+                process_answer(text_answer)
             st.rerun()
         else:
             st.warning("Please enter your answer before submitting.")
