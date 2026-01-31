@@ -1,0 +1,121 @@
+Build a web-based AI Mock Interview platform using Streamlit (Python) and OpenAI, with FULL VOICE MODE (AI speaks questions + user answers by audio).
+
+0) RULES (MANDATORY)
+- Plan Mode first: Before writing any code, propose a step-by-step implementation plan and wait for my approval before writing code.
+- Keep the code clean, modular, and commented.
+- Use the latest OpenAI Python SDK.
+- Use st.secrets["OPENAI_API_KEY"] for the API key (do not hardcode keys).
+- If PDF parsing fails or extracted text is empty, show a friendly error and guide the user to re-upload.
+
+1) PROJECT GOAL
+Create a Streamlit app where the user can provide ONE OR MORE of:
+- CV/Resume (PDF upload, MS Word file or txt file)
+
+Then the AI runs a mock interview in INTERACTIVE VOICE mode:
+- AI asks 5 interview questions tailored to the CV + JD/job details.
+- AI asks questions via audio (text-to-speech).
+- User responds using audio recording in the browser.
+- The app transcribes user audio to text (speech-to-text), then:
+  1) scores answer 0–10,
+  2) provides a short Pro Tip/critique,
+  3) asks the next question (also in audio).
+- After question 5, show “Generate Feedback” button producing a final report referencing JD requirements.
+
+2) CORE FEATURES
+
+A) USER INPUTS (Sidebar)
+- CV Upload: PDF upload, MS Word file or txt file
+
+- Optional: seniority dropdown (Junior/Mid/Senior)
+- Buttons:
+  - “Start Interview”
+  - “Restart Interview” (clears session)
+
+B) AI INTERVIEWER (OpenAI)
+- Use model: gpt-4o-mini (configurable in one place).
+- Use a strong SYSTEM PROMPT so the AI:
+  - Reads CV text + JD text.
+  - Generates exactly 5 interview questions aligned to JD + candidate background.
+  - Asks only ONE question at a time.
+  - After each answer, returns:
+    - score (0–10)
+    - 1-sentence justification
+    - short Pro Tip (actionable)
+    - next question (until Q5)
+- After Q5, it should stop asking and wait for “Generate Feedback”.
+- OPTIONAL NICE-TO-HAVE: if user answer is too short, ask ONE follow-up clarification before scoring.
+
+C) VOICE MODE (REQUIRED)
+1) AI Voice Output (TTS)
+- Convert AI question text (and optionally brief feedback) into audio and play it in Streamlit.
+- Use OpenAI text-to-speech API via the latest SDK (preferred).
+- Provide a toggle “Voice ON/OFF”.
+- If TTS fails, fall back to showing the text.
+
+2) User Audio Input (Recording)
+- Add an in-browser audio recorder component.
+- Use a Streamlit component such as:
+  - streamlit-audio-recorder OR streamlit-mic-recorder (choose whichever works reliably on Replit)
+- Store recorded audio bytes in session_state.
+
+3) Speech-to-Text (Transcription)
+- Use OpenAI audio transcription to convert the recorded audio to text.
+- Show the transcript to the user for transparency before submitting (or auto-submit).
+- If transcription fails, show error and allow re-record.
+
+D) CHAT UI (Streamlit)
+- Use st.chat_message() for chat bubbles (AI + user).
+- Use st.session_state to store:
+  - cv_text, jd_text
+  - messages list (role/content)
+  - current_question_index (1–5)
+  - answers (audio transcript), scores, tips
+  - interview_started flag, interview_completed flag
+- “Start Interview” triggers:
+  - AI greeting + Question 1 (text + audio)
+- For each question:
+  - user records audio
+  - app transcribes
+  - app sends transcript to AI for scoring + next question
+  - AI response displayed + next question spoken
+
+E) FINAL REPORT
+After 5 questions, show “Generate Feedback” button.
+When clicked, the AI generates a report including:
+- Performance summary
+- Strengths (bullets)
+- Areas to improve (bullets)
+- Suggested better answers (short examples)
+- 7-day practice plan (short)
+- Must reference JD requirements and gaps.
+
+3) APP STRUCTURE
+Implement as a Streamlit project with:
+- app.py (main UI + session state)
+- utils/pdf_parser.py (PDF extraction)
+- utils/job_scraper.py (URL extraction)
+- utils/voice.py (TTS + audio playback + transcription helpers)
+- utils/interview_engine.py (OpenAI calls + prompt building)
+Provide:
+- requirements.txt
+- README.md with setup instructions (Replit secrets, how to run)
+
+4) TECHNICAL REQUIREMENTS
+- Use st.secrets["OPENAI_API_KEY"]
+- Provide clear error handling and friendly messages.
+- Keep the UI clean and professional, with sidebar instructions.
+- Ensure no session reset bugs: state must persist across interactions.
+- Make the model and voice settings configurable in one place.
+
+5) ACCEPTANCE CRITERIA (DONE WHEN)
+- User can upload CV PDF and paste JD
+- Clicking “Start Interview” starts voice interview
+- AI asks 5 questions (voice + text)
+- User answers by audio; system transcribes
+- After each answer: AI gives score + pro tip + next question
+- After Q5: “Generate Feedback” button appears and final report is produced
+- Works reliably on Replit
+
+6) START NOW IN PLAN MODE
+First provide a step-by-step implementation plan, then wait for my approval before writing code.
+
