@@ -13,7 +13,7 @@ This uses Replit AI Integrations for OpenAI access - no API key required. Charge
 │   ├── __init__.py
 │   ├── db.py                 # Database module (PostgreSQL - users, interviews)
 │   ├── pdf_parser.py         # Document parsing (PDF, Word, TXT)
-│   ├── voice.py              # TTS and STT functionality using gpt-audio
+│   ├── voice.py              # TTS (browser Web Speech API) and STT (OpenAI Whisper)
 │   └── interview_engine.py   # OpenAI interview logic and prompts
 ├── .streamlit/
 │   └── config.toml           # Streamlit server configuration
@@ -25,10 +25,16 @@ This uses Replit AI Integrations for OpenAI access - no API key required. Charge
 - Interview history saved per user in PostgreSQL
 - CV/Resume upload (PDF, Word, TXT)
 - Job description input (optional)
-- Demo Mode (mock responses, no AI cost)
-- 2-question interview flow with instant scoring (0-10)
+- 1-question interview flow with instant scoring (0-10)
+- Audio TTS: Questions are read aloud automatically using browser Web Speech API
+- Audio STT: Users can record audio answers via microphone (transcribed by OpenAI Whisper)
 - Comprehensive final feedback report with 7-day practice plan
 - Interview history viewer with full Q&A and reports
+
+## Audio Features
+- TTS: Uses browser's built-in Web Speech API (speechSynthesis). Questions auto-play when generated and have a "Listen to Question" button for replay.
+- STT: Uses `audio_recorder_streamlit` component for microphone recording, then OpenAI Whisper (`whisper-1`) via Replit AI Integrations for transcription.
+- Always-on: No toggle needed, both features are always available.
 
 ## Database
 PostgreSQL (Replit built-in) with two tables:
@@ -39,7 +45,7 @@ PostgreSQL (Replit built-in) with two tables:
 All model and voice settings are in `config.py`:
 - `OPENAI_MODEL`: GPT model for interview logic (default: gpt-5-mini)
 - `TTS_VOICE`: Voice for TTS (default: alloy)
-- `TOTAL_QUESTIONS`: Number of interview questions (default: 2)
+- `TOTAL_QUESTIONS`: Number of interview questions (default: 1)
 
 ## Environment Variables (Auto-configured)
 - `AI_INTEGRATIONS_OPENAI_API_KEY`: Set automatically by Replit AI Integrations
@@ -57,8 +63,14 @@ The app uses `st.session_state` to manage:
 - `page`: Current page (interview/history)
 - `cv_text`, `jd_text`: Document content
 - `messages`: Chat history
-- `current_question_index`: Question number (1-2)
+- `current_question_index`: Question number
 - `questions`, `answers`, `scores`, `tips`: Interview data
 - `interview_started`, `interview_completed`: Flow flags
-- `demo_mode`: Demo mode toggle (default: True)
+- `auto_speak_question`: Text of question to auto-speak on next render
 - `report_generated`, `report_text`: Final report data
+
+## User Preferences
+- 1 question per interview (TOTAL_QUESTIONS = 1)
+- No Demo Mode toggle - always use real AI
+- Questions must be read aloud automatically
+- Users must be able to record audio answers

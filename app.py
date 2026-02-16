@@ -6,8 +6,11 @@ Main Streamlit application with interview functionality.
 import json
 import streamlit as st
 
+from audio_recorder_streamlit import audio_recorder
+
 from config import SENIORITY_LEVELS, TOTAL_QUESTIONS
 from utils.pdf_parser import parse_document
+from utils.voice import speech_to_text, auto_speak_tts_html, generate_tts_html
 from utils.interview_engine import (
     get_first_question,
     evaluate_answer_and_get_next,
@@ -215,7 +218,8 @@ def init_session_state():
         'awaiting_answer': False,
         'processing': False,
         'report_generated': False,
-        'report_text': ''
+        'report_text': '',
+        'auto_speak_question': '',
     }
 
     for key, value in defaults.items():
@@ -237,6 +241,7 @@ def reset_interview():
     st.session_state.processing = False
     st.session_state.report_generated = False
     st.session_state.report_text = ''
+    st.session_state.auto_speak_question = ''
 
 
 def render_auth_page():
@@ -391,6 +396,7 @@ def start_interview():
         st.session_state.questions.append(first_question)
         st.session_state.current_question_index = 1
         st.session_state.awaiting_answer = True
+        st.session_state.auto_speak_question = first_question
 
     except Exception as e:
         st.error(f"Failed to start interview: {str(e)}")
@@ -452,6 +458,7 @@ def process_answer(transcription: str):
             feedback_message += f"\n\n---\n\n**Question {st.session_state.current_question_index}/{TOTAL_QUESTIONS}:**\n{next_question}"
             st.session_state.questions.append(next_question)
             st.session_state.awaiting_answer = True
+            st.session_state.auto_speak_question = next_question
         else:
             st.session_state.interview_completed = True
             st.session_state.awaiting_answer = False
@@ -475,9 +482,20 @@ def process_answer(transcription: str):
 
 
 def render_chat():
+    question_idx = 0
     for message in st.session_state.messages:
         with st.chat_message(message['role']):
             st.markdown(message['content'])
+            if message['role'] == 'assistant' and 'Question' in message['content']:
+                if question_idx < len(st.session_state.questions):
+                    q_text = st.session_state.questions[question_idx]
+                    st.components.v1.html(generate_tts_html(q_text), height=50)
+                    question_idx += 1
+
+    if st.session_state.auto_speak_question:
+        question_text = st.session_state.auto_speak_question
+        st.session_state.auto_speak_question = ''
+        st.components.v1.html(auto_speak_tts_html(question_text), height=0)
 
 
 def render_response_input():
@@ -494,22 +512,47 @@ def render_response_input():
 
     answer_key = f"answer_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
 
-    text_answer = st.text_area(
-        "Type your answer here",
-        key=answer_key,
-        height=150,
-        placeholder="Take your time and provide a detailed response..."
-    )
+    tab_type, tab_voice = st.tabs(["⌨️ Type Answer", "🎙️ Record Answer"])
 
-    submit_key = f"submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+    with tab_type:
+        text_answer = st.text_area(
+            "Type your answer here",
+            key=answer_key,
+            height=150,
+            placeholder="Take your time and provide a detailed response..."
+        )
 
-    if st.button("📤 Submit Answer", type="primary", key=submit_key):
-        if text_answer.strip():
-            with st.spinner("Evaluating your response..."):
-                process_answer(text_answer)
-            st.rerun()
-        else:
-            st.warning("Please enter your answer before submitting.")
+        submit_key = f"submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+
+        if st.button("📤 Submit Answer", type="primary", key=submit_key):
+            if text_answer.strip():
+                with st.spinner("Evaluating your response..."):
+                    process_answer(text_answer)
+                st.rerun()
+            else:
+                st.warning("Please enter your answer before submitting.")
+
+    with tab_voice:
+        st.markdown("Click the microphone to start recording. Click again to stop.")
+        audio_bytes = audio_recorder(
+            text="",
+            recording_color="#667eea",
+            neutral_color="#c3cfe2",
+            icon_size="2x",
+            key=f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+        )
+
+        if audio_bytes:
+            st.audio(audio_bytes, format="audio/wav")
+            if st.button("📤 Submit Audio Answer", type="primary", key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
+                with st.spinner("Transcribing and evaluating your response..."):
+                    transcribed_text, error = speech_to_text(audio_bytes)
+                    if error:
+                        st.error(f"Could not transcribe audio: {error}")
+                    elif transcribed_text:
+                        st.info(f"**Transcribed:** {transcribed_text}")
+                        process_answer(transcribed_text)
+                        st.rerun()
 
 
 def render_final_report():

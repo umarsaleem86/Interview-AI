@@ -1,112 +1,112 @@
-"""
-Voice utilities for text-to-speech and speech-to-text functionality.
-Uses Replit AI Integrations for OpenAI audio capabilities.
-"""
-
 import io
 import os
 import base64
-from typing import Tuple, Optional
+from typing import Tuple
 from openai import OpenAI
-import streamlit as st
-
-from config import TTS_VOICE
 
 
 def get_openai_client() -> OpenAI:
-    """
-    Get OpenAI client configured for Replit AI Integrations.
-    This uses Replit's AI Integrations service, which provides OpenAI-compatible 
-    API access without requiring your own OpenAI API key.
-    """
     return OpenAI(
         api_key=os.environ.get("AI_INTEGRATIONS_OPENAI_API_KEY"),
         base_url=os.environ.get("AI_INTEGRATIONS_OPENAI_BASE_URL")
     )
 
 
-def text_to_speech(text: str) -> Tuple[Optional[bytes], str]:
-    """
-    Convert text to speech using gpt-audio model.
-    
-    Args:
-        text: Text to convert to speech
-        
-    Returns:
-        Tuple of (audio_bytes, error_message)
-    """
+def speech_to_text(audio_bytes: bytes) -> Tuple[str, str]:
     try:
         client = get_openai_client()
-        
-        response = client.chat.completions.create(
-            model="gpt-audio",
-            modalities=["text", "audio"],
-            audio={"voice": TTS_VOICE, "format": "wav"},
-            messages=[
-                {"role": "system", "content": "You are an assistant that performs text-to-speech."},
-                {"role": "user", "content": f"Repeat the following text verbatim: {text}"},
-            ],
+        audio_file = io.BytesIO(audio_bytes)
+        audio_file.name = "recording.wav"
+        response = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file
         )
-        
-        audio_data = getattr(response.choices[0].message, "audio", None)
-        if audio_data and hasattr(audio_data, "data"):
-            audio_bytes = base64.b64decode(audio_data.data)
-            return audio_bytes, ""
-        
-        return None, "No audio data received from TTS"
-        
-    except Exception as e:
-        return None, f"Text-to-speech failed: {str(e)}"
-
-
-def speech_to_text(audio_bytes: bytes, file_format: str = "wav") -> Tuple[str, str]:
-    """
-    Convert speech to text using gpt-audio model.
-    
-    Args:
-        audio_bytes: Raw audio bytes
-        file_format: Audio file format (wav, mp3, etc.)
-        
-    Returns:
-        Tuple of (transcribed_text, error_message)
-    """
-    try:
-        client = get_openai_client()
-        
-        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
-        
-        response = client.chat.completions.create(
-            model="gpt-audio",
-            modalities=["text"],
-            messages=[
-                {"role": "system", "content": "You are an assistant that performs speech-to-text. Transcribe the audio exactly as spoken."},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Transcribe the following audio exactly as spoken."},
-                        {"type": "input_audio", "input_audio": {"data": audio_base64, "format": file_format}},
-                    ],
-                },
-            ],
-        )
-        
-        text = response.choices[0].message.content or ""
-        text = text.strip()
-        
+        text = response.text.strip() if response.text else ""
         if not text:
-            return "", "Could not transcribe audio. Please try recording again with clearer speech."
-        
+            return "", "Could not transcribe audio. Please try recording again."
         return text, ""
-        
     except Exception as e:
-        return "", f"Transcription failed: {str(e)}. Please try recording again."
+        return "", f"Transcription failed: {str(e)}"
 
 
-def play_audio(audio_bytes: bytes):
+def generate_tts_html(text: str) -> str:
+    clean_text = text.replace("**", "").replace("---", "").replace("\n", " ").replace("'", "\\'").replace('"', '\\"')
+    return f"""
+    <div style="margin: 8px 0;">
+        <button onclick="
+            var utterance = new SpeechSynthesisUtterance('{clean_text}');
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+        " style="
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        ">🔊 Listen to Question</button>
+        <button onclick="window.speechSynthesis.cancel();" style="
+            background: rgba(255,255,255,0.1);
+            color: #c3cfe2;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-left: 8px;
+        ">⏹ Stop</button>
+    </div>
     """
-    Play audio in Streamlit using st.audio.
-    
-    Args:
-        audio_bytes: Audio data in bytes
+
+
+def auto_speak_tts_html(text: str) -> str:
+    clean_text = text.replace("**", "").replace("---", "").replace("\n", " ").replace("'", "\\'").replace('"', '\\"')
+    return f"""
+    <div style="margin: 8px 0;">
+        <button id="listenBtn" onclick="
+            var utterance = new SpeechSynthesisUtterance('{clean_text}');
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+        " style="
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        ">🔊 Listen to Question</button>
+        <button onclick="window.speechSynthesis.cancel();" style="
+            background: rgba(255,255,255,0.1);
+            color: #c3cfe2;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-left: 8px;
+        ">⏹ Stop</button>
+    </div>
+    <script>
+        (function() {{
+            var utterance = new SpeechSynthesisUtterance('{clean_text}');
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+        }})();
+    </script>
     """
-    st.audio(audio_bytes, format="audio/wav", autoplay=True)
