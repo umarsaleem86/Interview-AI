@@ -8,7 +8,6 @@ import streamlit as st
 
 from config import SENIORITY_LEVELS, TOTAL_QUESTIONS
 from utils.pdf_parser import parse_document
-from utils.voice import text_to_speech
 from utils.interview_engine import (
     get_first_question,
     evaluate_answer_and_get_next,
@@ -212,10 +211,7 @@ def init_session_state():
         'justifications': [],
         'interview_started': False,
         'interview_completed': False,
-        'voice_enabled': False,
-        'demo_mode': True,
         'seniority': 'Mid',
-        'current_audio': None,
         'awaiting_answer': False,
         'processing': False,
         'report_generated': False,
@@ -237,7 +233,6 @@ def reset_interview():
     st.session_state.justifications = []
     st.session_state.interview_started = False
     st.session_state.interview_completed = False
-    st.session_state.current_audio = None
     st.session_state.awaiting_answer = False
     st.session_state.processing = False
     st.session_state.report_generated = False
@@ -354,15 +349,6 @@ def render_interview_sidebar():
     )
     st.session_state.seniority = seniority
 
-    voice_enabled = st.toggle("🔊 Voice Mode (AI reads questions)", value=st.session_state.voice_enabled)
-    st.session_state.voice_enabled = voice_enabled
-
-    demo_mode = st.toggle("🧪 Demo Mode (No AI Cost)", value=st.session_state.demo_mode)
-    st.session_state.demo_mode = demo_mode
-
-    if demo_mode:
-        st.caption("✅ Demo mode - no API costs!")
-
     st.divider()
 
     col1, col2 = st.columns(2)
@@ -390,7 +376,7 @@ def start_interview():
             st.session_state.cv_text,
             st.session_state.jd_text,
             st.session_state.seniority,
-            demo_mode=st.session_state.demo_mode
+            demo_mode=False
         )
 
         greeting = result.get('greeting', 'Welcome to your mock interview!')
@@ -405,12 +391,6 @@ def start_interview():
         st.session_state.questions.append(first_question)
         st.session_state.current_question_index = 1
         st.session_state.awaiting_answer = True
-
-        if st.session_state.voice_enabled:
-            tts_text = f"{greeting}. Question 1. {first_question}"
-            audio_bytes, error = text_to_speech(tts_text)
-            if not error and audio_bytes:
-                st.session_state.current_audio = audio_bytes
 
     except Exception as e:
         st.error(f"Failed to start interview: {str(e)}")
@@ -441,7 +421,7 @@ def process_answer(transcription: str):
             conversation_history,
             transcription,
             st.session_state.current_question_index,
-            demo_mode=st.session_state.demo_mode
+            demo_mode=False
         )
 
         score = result.get('score', 5)
@@ -472,18 +452,9 @@ def process_answer(transcription: str):
             feedback_message += f"\n\n---\n\n**Question {st.session_state.current_question_index}/{TOTAL_QUESTIONS}:**\n{next_question}"
             st.session_state.questions.append(next_question)
             st.session_state.awaiting_answer = True
-
-            if st.session_state.voice_enabled:
-                tts_text = f"Score: {score} out of 10. {justification}. Pro Tip: {pro_tip}. Question {st.session_state.current_question_index}. {next_question}"
-                audio_bytes, error = text_to_speech(tts_text)
-                if not error and audio_bytes:
-                    st.session_state.current_audio = audio_bytes
-                else:
-                    st.session_state.current_audio = None
         else:
             st.session_state.interview_completed = True
             st.session_state.awaiting_answer = False
-            st.session_state.current_audio = None
             feedback_message += "\n\n---\n\n🎉 **Interview Complete!** Click 'Generate Feedback' below to get your detailed report."
 
         st.session_state.messages.append({
@@ -507,12 +478,6 @@ def render_chat():
     for message in st.session_state.messages:
         with st.chat_message(message['role']):
             st.markdown(message['content'])
-
-    if st.session_state.voice_enabled and st.session_state.current_audio:
-        st.markdown("🔊 **Audio Playback:**")
-        st.audio(st.session_state.current_audio, format="audio/wav", autoplay=True)
-    elif st.session_state.voice_enabled and st.session_state.awaiting_answer and not st.session_state.current_audio:
-        st.caption("⚠️ Audio generation failed. Please read the question above.")
 
 
 def render_response_input():
@@ -580,7 +545,7 @@ def render_final_report():
                     st.session_state.answers,
                     st.session_state.scores,
                     st.session_state.tips,
-                    demo_mode=st.session_state.demo_mode
+                    demo_mode=False
                 )
 
                 st.session_state.report_generated = True
@@ -590,7 +555,7 @@ def render_final_report():
                 save_interview(
                     user_id=st.session_state.user_id,
                     seniority=st.session_state.seniority,
-                    demo_mode=st.session_state.demo_mode,
+                    demo_mode=False,
                     cv_text=st.session_state.cv_text,
                     jd_text=st.session_state.jd_text,
                     questions=st.session_state.questions,
@@ -682,17 +647,16 @@ def render_interview_page():
             1. 📄 Upload your CV/Resume in the sidebar
             2. 📝 Optionally paste the job description
             3. ▶️ Click "Start" to begin
-            4. ✍️ Answer questions using text input
+            4. ✍️ Answer the interview question
             5. 📊 Get instant feedback and a final report
             """)
         with col2:
             st.markdown("""
             **Features:**
-            - 📈 **Instant Scoring**: 0-10 on each answer
-            - 💡 **Pro Tips**: Actionable advice per response
-            - 🔊 **Voice Mode**: AI reads questions aloud
+            - 📈 **Instant Scoring**: 0-10 on your answer
+            - 💡 **Pro Tips**: Actionable advice
             - 📋 **Final Report**: Feedback with practice plan
-            - 📜 **History**: All interviews saved
+            - 📜 **History**: All interviews saved to your account
             """)
     else:
         render_chat()
