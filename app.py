@@ -550,160 +550,91 @@ def render_response_input():
     st.markdown(f"### ✍️ Your Response — Question {st.session_state.current_question_index} of {TOTAL_QUESTIONS}")
 
     answer_key = f"answer_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+    recorder_key = f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}_{st.session_state.recorder_version}"
 
-    tab_type, tab_voice = st.tabs(["⌨️ Type Answer", "🎙️ Record Answer"])
+    st.markdown("""
+    <div style="background: rgba(102,126,234,0.08); border: 1px solid rgba(102,126,234,0.2); 
+        border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+        <div style="color: #c3cfe2; font-size: 0.95rem;">
+            <strong style="color: #667eea;">🎙️ Record your answer</strong> using the microphone below, 
+            or <strong style="color: #667eea;">⌨️ type it</strong> in the text box. You have up to 30 seconds to record.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with tab_type:
-        text_answer = st.text_area(
-            "Type your answer here",
-            key=answer_key,
-            height=150,
-            placeholder="Take your time and provide a detailed response..."
-        )
+    audio_bytes = audio_recorder(
+        text="",
+        recording_color="#e74c3c",
+        neutral_color="#c3cfe2",
+        icon_size="2x",
+        pause_threshold=30.0,
+        key=recorder_key
+    )
 
-        submit_key = f"submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
-
-        if st.button("📤 Submit Answer", type="primary", key=submit_key):
-            if text_answer.strip():
-                with st.spinner("Evaluating your response..."):
-                    process_answer(text_answer)
-                st.rerun()
-            else:
-                st.warning("Please enter your answer before submitting.")
-
-    with tab_voice:
-        recorder_key = f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}_{st.session_state.recorder_version}"
-
+    if audio_bytes:
         st.markdown("""
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <span style="color: #c3cfe2;">Click the microphone to start recording. Click again to stop.</span>
+        <div style="background: rgba(39,174,96,0.1); border: 1px solid rgba(39,174,96,0.3); 
+            border-radius: 10px; padding: 12px; margin: 8px 0;">
+            <span style="color: #27ae60; font-weight: 600;">✅ Recording captured!</span>
+            <span style="color: #a0a0b8;"> Preview below, then submit or re-record.</span>
         </div>
         """, unsafe_allow_html=True)
 
-        st.components.v1.html("""
-        <div id="rec-status" style="margin: 4px 0 8px 0; font-size: 14px; min-height: 28px;">
-            <span id="idle-msg" style="color: #a0a0b8;">🎙️ Press the microphone to begin (up to 30 seconds)</span>
-            <span id="rec-msg" style="display:none; color: #e74c3c; font-weight: 600;">
-                🔴 Recording... <span id="timer">0:00</span> / 0:30
-            </span>
-        </div>
-        <script>
-        (function() {
-            var started = false;
-            var seconds = 0;
-            var interval = null;
-            
-            function checkRecording() {
-                var btns = window.parent.document.querySelectorAll('button[kind="secondary"]');
-                var isRecording = false;
-                btns.forEach(function(btn) {
-                    if (btn.closest('[data-testid="stVerticalBlock"]')) {
-                        var svg = btn.querySelector('svg');
-                        if (svg) {
-                            var path = svg.querySelector('path');
-                            if (path && path.getAttribute('fill') === '#e74c3c') {
-                                isRecording = true;
-                            }
-                        }
-                    }
-                });
+        st.audio(audio_bytes, format="audio/wav")
 
-                var iframes = window.parent.document.querySelectorAll('iframe');
-                iframes.forEach(function(iframe) {
-                    try {
-                        var doc = iframe.contentDocument;
-                        if (doc) {
-                            var recBtn = doc.querySelector('[style*="recording"], .recording, [data-recording="true"]');
-                            if (recBtn) isRecording = true;
-                        }
-                    } catch(e) {}
-                });
-                
-                var idleMsg = document.getElementById('idle-msg');
-                var recMsg = document.getElementById('rec-msg');
-                var timerEl = document.getElementById('timer');
-                
-                if (!idleMsg || !recMsg) return;
-                
-                if (isRecording && !started) {
-                    started = true;
-                    seconds = 0;
-                    idleMsg.style.display = 'none';
-                    recMsg.style.display = 'inline';
-                    interval = setInterval(function() {
-                        seconds++;
-                        var m = Math.floor(seconds / 60);
-                        var s = seconds % 60;
-                        timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
-                        if (seconds >= 30) {
-                            clearInterval(interval);
-                        }
-                    }, 1000);
-                } else if (!isRecording && started) {
-                    started = false;
-                    if (interval) clearInterval(interval);
-                    recMsg.style.display = 'none';
-                    idleMsg.style.display = 'none';
-                }
-            }
-            setInterval(checkRecording, 500);
-        })();
-        </script>
-        """, height=36)
-
-        audio_bytes = audio_recorder(
-            text="",
-            recording_color="#e74c3c",
-            neutral_color="#c3cfe2",
-            icon_size="2x",
-            pause_threshold=30.0,
-            key=recorder_key
-        )
-
-        if audio_bytes:
-            st.markdown("""
-            <div style="background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); 
-                border-radius: 10px; padding: 12px; margin: 8px 0;">
-                <span style="color: #667eea; font-weight: 600;">✅ Recording captured!</span>
-                <span style="color: #a0a0b8;"> Preview your answer below, then submit or re-record.</span>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.audio(audio_bytes, format="audio/wav")
-
-            col_submit, col_rerecord = st.columns(2)
-            with col_submit:
-                if st.button("📤 Submit Audio Answer", type="primary", use_container_width=True,
-                             key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
-                    st.session_state.processing = True
-                    st.markdown("""
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 16px; 
-                        background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); 
-                        border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; margin: 8px 0;">
-                        <div style="width: 10px; height: 10px; border-radius: 50%; background: #667eea; 
-                            animation: pulse 1s ease-in-out infinite alternate;"></div>
-                        <span style="color: #c3cfe2; font-weight: 500;">
-                            Transcribing and evaluating your response...
-                        </span>
-                    </div>
-                    <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
-                    """, unsafe_allow_html=True)
-                    transcribed_text, error = speech_to_text(audio_bytes)
-                    if error:
-                        st.session_state.processing = False
-                        st.error(f"Could not transcribe audio: {error}")
-                    elif transcribed_text:
-                        st.info(f"**Transcribed:** {transcribed_text}")
-                        process_answer(transcribed_text)
-                        st.rerun()
-                    else:
-                        st.session_state.processing = False
-                        st.warning("No speech detected. Please try recording again.")
-            with col_rerecord:
-                if st.button("🔄 Re-record", use_container_width=True,
-                             key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
-                    st.session_state.recorder_version += 1
+        col_submit, col_rerecord = st.columns(2)
+        with col_submit:
+            if st.button("📤 Submit Audio Answer", type="primary", use_container_width=True,
+                         key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
+                st.session_state.processing = True
+                st.markdown("""
+                <div style="display: flex; align-items: center; gap: 12px; padding: 16px; 
+                    background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); 
+                    border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; margin: 8px 0;">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #667eea; 
+                        animation: pulse 1s ease-in-out infinite alternate;"></div>
+                    <span style="color: #c3cfe2; font-weight: 500;">
+                        Transcribing and evaluating your response...
+                    </span>
+                </div>
+                <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
+                """, unsafe_allow_html=True)
+                transcribed_text, error = speech_to_text(audio_bytes)
+                if error:
+                    st.session_state.processing = False
+                    st.error(f"Could not transcribe audio: {error}")
+                elif transcribed_text:
+                    st.info(f"**Transcribed:** {transcribed_text}")
+                    process_answer(transcribed_text)
                     st.rerun()
+                else:
+                    st.session_state.processing = False
+                    st.warning("No speech detected. Please try recording again.")
+        with col_rerecord:
+            if st.button("🔄 Re-record", use_container_width=True,
+                         key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
+                st.session_state.recorder_version += 1
+                st.rerun()
+
+    st.markdown("---")
+    st.markdown('<p style="color: #a0a0b8; font-size: 0.9rem; margin: 0;">Or type your answer instead:</p>', unsafe_allow_html=True)
+
+    text_answer = st.text_area(
+        "Type your answer here",
+        key=answer_key,
+        height=120,
+        placeholder="Take your time and provide a detailed response..."
+    )
+
+    submit_key = f"submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+
+    if st.button("📤 Submit Written Answer", type="primary", key=submit_key):
+        if text_answer.strip():
+            with st.spinner("Evaluating your response..."):
+                process_answer(text_answer)
+            st.rerun()
+        else:
+            st.warning("Please enter your answer before submitting.")
 
 
 def render_final_report():
