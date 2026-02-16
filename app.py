@@ -523,7 +523,23 @@ def render_chat():
 def render_response_input():
     if st.session_state.processing:
         st.markdown("---")
-        st.spinner("Processing your answer...")
+        st.markdown("""
+        <div style="display: flex; align-items: center; gap: 12px; padding: 20px; 
+            background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); 
+            border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; margin: 16px 0;">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: #667eea; 
+                animation: blink 1s ease-in-out infinite alternate;"></div>
+            <span style="color: #c3cfe2; font-size: 1.1rem; font-weight: 500;">
+                Processing your response... Please wait
+            </span>
+        </div>
+        <style>
+            @keyframes blink {
+                0% { opacity: 0.3; transform: scale(0.8); }
+                100% { opacity: 1; transform: scale(1.2); }
+            }
+        </style>
+        """, unsafe_allow_html=True)
         return
 
     if not st.session_state.awaiting_answer:
@@ -556,25 +572,66 @@ def render_response_input():
 
     with tab_voice:
         st.markdown("Click the microphone to start recording. Click again to stop.")
+        
+        recorder_key = f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
         audio_bytes = audio_recorder(
             text="",
-            recording_color="#667eea",
+            recording_color="#e74c3c",
             neutral_color="#c3cfe2",
             icon_size="2x",
-            key=f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+            key=recorder_key
         )
 
         if audio_bytes:
+            st.markdown("""
+            <div style="background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); 
+                border-radius: 10px; padding: 12px; margin: 8px 0;">
+                <span style="color: #667eea; font-weight: 600;">✅ Recording captured!</span>
+                <span style="color: #a0a0b8;"> Preview your answer below, then submit or re-record.</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
             st.audio(audio_bytes, format="audio/wav")
-            if st.button("📤 Submit Audio Answer", type="primary", key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
-                with st.spinner("Transcribing and evaluating your response..."):
+
+            col_submit, col_rerecord = st.columns(2)
+            with col_submit:
+                if st.button("📤 Submit Audio Answer", type="primary", use_container_width=True,
+                             key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
+                    st.session_state.processing = True
+                    st.markdown("""
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 16px; 
+                        background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); 
+                        border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; margin: 8px 0;">
+                        <div style="width: 10px; height: 10px; border-radius: 50%; background: #667eea; 
+                            animation: pulse 1s ease-in-out infinite alternate;"></div>
+                        <span style="color: #c3cfe2; font-weight: 500;">
+                            Transcribing and evaluating your response...
+                        </span>
+                    </div>
+                    <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
+                    """, unsafe_allow_html=True)
                     transcribed_text, error = speech_to_text(audio_bytes)
                     if error:
+                        st.session_state.processing = False
                         st.error(f"Could not transcribe audio: {error}")
                     elif transcribed_text:
                         st.info(f"**Transcribed:** {transcribed_text}")
                         process_answer(transcribed_text)
                         st.rerun()
+                    else:
+                        st.session_state.processing = False
+                        st.warning("No speech detected. Please try recording again.")
+            with col_rerecord:
+                if st.button("🔄 Re-record", use_container_width=True,
+                             key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
+                    st.rerun()
+        else:
+            st.markdown("""
+            <div style="color: #a0a0b8; font-size: 0.9rem; padding: 8px 0;">
+                🎙️ Press the microphone button above to start recording your answer. 
+                The button turns <span style="color: #e74c3c; font-weight: 600;">red</span> while recording.
+            </div>
+            """, unsafe_allow_html=True)
 
 
 def render_final_report():
