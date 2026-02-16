@@ -1,15 +1,14 @@
 """
 AI Mock Interview Platform
-Main Streamlit application with voice-enabled interview functionality.
+Main Streamlit application with interview functionality.
 """
 
 import json
 import streamlit as st
-from audio_recorder_streamlit import audio_recorder
 
 from config import SENIORITY_LEVELS, TOTAL_QUESTIONS
 from utils.pdf_parser import parse_document
-from utils.voice import text_to_speech, speech_to_text, play_audio
+from utils.voice import text_to_speech
 from utils.interview_engine import (
     get_first_question,
     evaluate_answer_and_get_next,
@@ -18,8 +17,185 @@ from utils.interview_engine import (
 from utils.db import init_db, create_user, verify_user, save_interview, get_user_interviews
 
 
+def inject_custom_css():
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    .stApp {
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-right: 1px solid rgba(255,255,255,0.08);
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #e0e0e0 !important;
+    }
+
+    h1 {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-weight: 700 !important;
+        font-size: 2.5rem !important;
+    }
+
+    h2, h3 {
+        color: #c3cfe2 !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        padding: 6px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        color: #a0a0b8 !important;
+        font-weight: 500;
+        padding: 10px 24px;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+    }
+
+    .stButton > button {
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        transform: translateY(-1px);
+    }
+
+    .stButton > button:not([kind="primary"]) {
+        background: rgba(255,255,255,0.08) !important;
+        color: #c3cfe2 !important;
+        border: 1px solid rgba(255,255,255,0.15) !important;
+    }
+
+    .stButton > button:not([kind="primary"]):hover {
+        background: rgba(255,255,255,0.15) !important;
+    }
+
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.15) !important;
+        border-radius: 10px !important;
+        color: #e0e0e0 !important;
+    }
+
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 10px rgba(102, 126, 234, 0.3) !important;
+    }
+
+    .stSelectbox > div > div {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.15) !important;
+        border-radius: 10px !important;
+    }
+
+    [data-testid="stMetric"] {
+        background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15));
+        border: 1px solid rgba(102,126,234,0.25);
+        border-radius: 12px;
+        padding: 16px;
+    }
+
+    [data-testid="stMetric"] label {
+        color: #a0a0b8 !important;
+    }
+
+    [data-testid="stMetric"] [data-testid="stMetricValue"] {
+        color: #667eea !important;
+        font-weight: 700 !important;
+    }
+
+    [data-testid="stExpander"] {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+    }
+
+    [data-testid="stChatMessage"] {
+        background: rgba(255,255,255,0.04) !important;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        border-radius: 12px !important;
+        padding: 16px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .stMarkdown p, .stMarkdown li {
+        color: #c3cfe2;
+    }
+
+    .stAlert > div {
+        border-radius: 10px !important;
+    }
+
+    [data-testid="stFileUploader"] {
+        background: rgba(255,255,255,0.04);
+        border: 1px dashed rgba(102,126,234,0.4);
+        border-radius: 12px;
+        padding: 8px;
+    }
+
+    .hero-card {
+        background: linear-gradient(135deg, rgba(102,126,234,0.12), rgba(118,75,162,0.12));
+        border: 1px solid rgba(102,126,234,0.2);
+        border-radius: 16px;
+        padding: 32px;
+        margin: 16px 0;
+    }
+
+    .stat-pill {
+        display: inline-block;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 2px 4px;
+    }
+
+    hr {
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+
+    .stDivider {
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+
+    [data-testid="stSidebar"] .stDivider hr,
+    [data-testid="stSidebar"] hr {
+        border-color: rgba(255,255,255,0.12) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 def init_session_state():
-    """Initialize all session state variables."""
     defaults = {
         'logged_in': False,
         'user_id': None,
@@ -41,8 +217,6 @@ def init_session_state():
         'seniority': 'Mid',
         'current_audio': None,
         'awaiting_answer': False,
-        'last_transcription': '',
-        'show_transcription': False,
         'processing': False,
         'report_generated': False,
         'report_text': ''
@@ -54,7 +228,6 @@ def init_session_state():
 
 
 def reset_interview():
-    """Reset all interview-related session state."""
     st.session_state.messages = []
     st.session_state.current_question_index = 0
     st.session_state.questions = []
@@ -66,67 +239,63 @@ def reset_interview():
     st.session_state.interview_completed = False
     st.session_state.current_audio = None
     st.session_state.awaiting_answer = False
-    st.session_state.last_transcription = ''
-    st.session_state.show_transcription = False
     st.session_state.processing = False
     st.session_state.report_generated = False
     st.session_state.report_text = ''
 
 
 def render_auth_page():
-    """Render the login/register page."""
-    st.title("🎯 AI Mock Interview Platform")
-    st.markdown("Practice your interview skills with an AI interviewer!")
+    col_spacer1, col_main, col_spacer2 = st.columns([1, 2, 1])
 
-    st.markdown("---")
+    with col_main:
+        st.title("🎯 AI Mock Interview")
+        st.markdown('<p style="color: #a0a0b8; font-size: 1.2rem; margin-bottom: 24px;">Master your next job interview with AI-powered coaching</p>', unsafe_allow_html=True)
 
-    tab_login, tab_register = st.tabs(["Login", "Create Account"])
+        tab_login, tab_register = st.tabs(["🔑 Login", "✨ Create Account"])
 
-    with tab_login:
-        st.subheader("Login to Your Account")
-        login_username = st.text_input("Username", key="login_username", placeholder="Enter your username")
-        login_password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
+        with tab_login:
+            st.markdown("")
+            login_username = st.text_input("Username", key="login_username", placeholder="Enter your username")
+            login_password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
 
-        if st.button("Login", type="primary", use_container_width=True, key="login_btn"):
-            if login_username and login_password:
-                result = verify_user(login_username, login_password)
-                if result["success"]:
-                    st.session_state.logged_in = True
-                    st.session_state.user_id = result["user_id"]
-                    st.session_state.username = result["username"]
-                    st.rerun()
+            if st.button("Login", type="primary", use_container_width=True, key="login_btn"):
+                if login_username and login_password:
+                    result = verify_user(login_username, login_password)
+                    if result["success"]:
+                        st.session_state.logged_in = True
+                        st.session_state.user_id = result["user_id"]
+                        st.session_state.username = result["username"]
+                        st.rerun()
+                    else:
+                        st.error(result["error"])
                 else:
-                    st.error(result["error"])
-            else:
-                st.warning("Please enter both username and password")
+                    st.warning("Please enter both username and password")
 
-    with tab_register:
-        st.subheader("Create a New Account")
-        reg_username = st.text_input("Choose a Username", key="reg_username", placeholder="At least 3 characters")
-        reg_password = st.text_input("Choose a Password", type="password", key="reg_password", placeholder="At least 6 characters")
-        reg_password2 = st.text_input("Confirm Password", type="password", key="reg_password2", placeholder="Re-enter your password")
+        with tab_register:
+            st.markdown("")
+            reg_username = st.text_input("Choose a Username", key="reg_username", placeholder="At least 3 characters")
+            reg_password = st.text_input("Choose a Password", type="password", key="reg_password", placeholder="At least 6 characters")
+            reg_password2 = st.text_input("Confirm Password", type="password", key="reg_password2", placeholder="Re-enter your password")
 
-        if st.button("Create Account", type="primary", use_container_width=True, key="register_btn"):
-            if not reg_username or not reg_password:
-                st.warning("Please fill in all fields")
-            elif reg_password != reg_password2:
-                st.error("Passwords do not match")
-            else:
-                result = create_user(reg_username, reg_password)
-                if result["success"]:
-                    st.session_state.logged_in = True
-                    st.session_state.user_id = result["user_id"]
-                    st.session_state.username = result["username"]
-                    st.success("Account created! Redirecting...")
-                    st.rerun()
+            if st.button("Create Account", type="primary", use_container_width=True, key="register_btn"):
+                if not reg_username or not reg_password:
+                    st.warning("Please fill in all fields")
+                elif reg_password != reg_password2:
+                    st.error("Passwords do not match")
                 else:
-                    st.error(result["error"])
+                    result = create_user(reg_username, reg_password)
+                    if result["success"]:
+                        st.session_state.logged_in = True
+                        st.session_state.user_id = result["user_id"]
+                        st.session_state.username = result["username"]
+                        st.rerun()
+                    else:
+                        st.error(result["error"])
 
 
 def render_sidebar():
-    """Render the sidebar with user inputs."""
     with st.sidebar:
-        st.markdown(f"**Logged in as:** {st.session_state.username}")
+        st.markdown(f"### 👤 {st.session_state.username}")
 
         col_nav1, col_nav2 = st.columns(2)
         with col_nav1:
@@ -150,12 +319,10 @@ def render_sidebar():
 
 
 def render_interview_sidebar():
-    """Render interview setup controls in sidebar."""
     st.header("📄 Interview Setup")
 
-    st.subheader("Upload Your CV/Resume")
     uploaded_file = st.file_uploader(
-        "Supported formats: PDF, Word (.docx), Text (.txt)",
+        "Upload CV/Resume (PDF, Word, TXT)",
         type=['pdf', 'docx', 'txt'],
         key='cv_upload'
     )
@@ -164,25 +331,22 @@ def render_interview_sidebar():
         cv_text, error = parse_document(uploaded_file)
         if error:
             st.error(f"⚠️ {error}")
-            st.info("💡 Tips:\n- Ensure your PDF has selectable text (not scanned images)\n- Try saving as .docx or .txt if issues persist")
         else:
             st.session_state.cv_text = cv_text
             st.success(f"✅ CV loaded ({len(cv_text.split())} words)")
 
     st.divider()
 
-    st.subheader("Job Description (Optional)")
     jd_text = st.text_area(
-        "Paste the job description here",
+        "Job Description (Optional)",
         value=st.session_state.jd_text,
-        height=150,
-        placeholder="Paste job requirements, responsibilities, and qualifications..."
+        height=120,
+        placeholder="Paste job requirements here..."
     )
     st.session_state.jd_text = jd_text
 
     st.divider()
 
-    st.subheader("Settings")
     seniority = st.selectbox(
         "Seniority Level",
         SENIORITY_LEVELS,
@@ -190,14 +354,14 @@ def render_interview_sidebar():
     )
     st.session_state.seniority = seniority
 
-    voice_enabled = st.toggle("🔊 Voice Mode", value=st.session_state.voice_enabled)
+    voice_enabled = st.toggle("🔊 Voice Mode (AI reads questions)", value=st.session_state.voice_enabled)
     st.session_state.voice_enabled = voice_enabled
 
     demo_mode = st.toggle("🧪 Demo Mode (No AI Cost)", value=st.session_state.demo_mode)
     st.session_state.demo_mode = demo_mode
 
     if demo_mode:
-        st.caption("✅ Demo mode uses mock responses - no API costs!")
+        st.caption("✅ Demo mode - no API costs!")
 
     st.divider()
 
@@ -205,7 +369,7 @@ def render_interview_sidebar():
 
     with col1:
         start_disabled = not st.session_state.cv_text or st.session_state.interview_started
-        if st.button("▶️ Start Interview", disabled=start_disabled, use_container_width=True):
+        if st.button("▶️ Start", disabled=start_disabled, use_container_width=True):
             start_interview()
 
     with col2:
@@ -214,14 +378,10 @@ def render_interview_sidebar():
             st.rerun()
 
     if not st.session_state.cv_text:
-        st.info("👆 Please upload your CV to begin")
-
-    st.divider()
-    st.caption("💡 **Tips:**\n- Speak clearly when recording\n- Take your time to think\n- Be specific with examples")
+        st.info("👆 Upload your CV to begin")
 
 
 def start_interview():
-    """Initialize and start the interview."""
     reset_interview()
     st.session_state.interview_started = True
 
@@ -247,8 +407,9 @@ def start_interview():
         st.session_state.awaiting_answer = True
 
         if st.session_state.voice_enabled:
-            audio_bytes, error = text_to_speech(full_message.replace('**', '').replace('\n\n', '. '))
-            if not error:
+            tts_text = f"{greeting}. Question 1. {first_question}"
+            audio_bytes, error = text_to_speech(tts_text)
+            if not error and audio_bytes:
                 st.session_state.current_audio = audio_bytes
 
     except Exception as e:
@@ -257,7 +418,6 @@ def start_interview():
 
 
 def process_answer(transcription: str):
-    """Process the user's answer and get AI feedback."""
     st.session_state.processing = True
 
     st.session_state.messages.append({
@@ -295,14 +455,35 @@ def process_answer(transcription: str):
 
         feedback_message = f"**Score: {score}/10**\n\n{justification}\n\n💡 **Pro Tip:** {pro_tip}"
 
-        if next_question and st.session_state.current_question_index < TOTAL_QUESTIONS:
+        is_last_question = st.session_state.current_question_index >= TOTAL_QUESTIONS
+
+        if not is_last_question:
+            if not next_question:
+                fallback_questions = [
+                    "Can you describe a challenging technical problem you solved and what approach you took?",
+                    "Tell me about a time you had to work under a tight deadline. How did you handle it?",
+                    "What is your approach to learning new technologies or tools?",
+                    "Describe a situation where you had a disagreement with a team member. How did you resolve it?"
+                ]
+                q_idx = st.session_state.current_question_index % len(fallback_questions)
+                next_question = fallback_questions[q_idx]
+
             st.session_state.current_question_index += 1
             feedback_message += f"\n\n---\n\n**Question {st.session_state.current_question_index}/{TOTAL_QUESTIONS}:**\n{next_question}"
             st.session_state.questions.append(next_question)
             st.session_state.awaiting_answer = True
+
+            if st.session_state.voice_enabled:
+                tts_text = f"Score: {score} out of 10. {justification}. Pro Tip: {pro_tip}. Question {st.session_state.current_question_index}. {next_question}"
+                audio_bytes, error = text_to_speech(tts_text)
+                if not error and audio_bytes:
+                    st.session_state.current_audio = audio_bytes
+                else:
+                    st.session_state.current_audio = None
         else:
             st.session_state.interview_completed = True
             st.session_state.awaiting_answer = False
+            st.session_state.current_audio = None
             feedback_message += "\n\n---\n\n🎉 **Interview Complete!** Click 'Generate Feedback' below to get your detailed report."
 
         st.session_state.messages.append({
@@ -323,14 +504,18 @@ def process_answer(transcription: str):
 
 
 def render_chat():
-    """Render the chat interface."""
     for message in st.session_state.messages:
         with st.chat_message(message['role']):
             st.markdown(message['content'])
 
+    if st.session_state.voice_enabled and st.session_state.current_audio:
+        st.markdown("🔊 **Audio Playback:**")
+        st.audio(st.session_state.current_audio, format="audio/wav", autoplay=True)
+    elif st.session_state.voice_enabled and st.session_state.awaiting_answer and not st.session_state.current_audio:
+        st.caption("⚠️ Audio generation failed. Please read the question above.")
+
 
 def render_response_input():
-    """Render the response input controls."""
     if st.session_state.processing:
         st.markdown("---")
         st.spinner("Processing your answer...")
@@ -340,8 +525,7 @@ def render_response_input():
         return
 
     st.markdown("---")
-    st.markdown("### ✍️ Your Response")
-    st.markdown(f"**Question {st.session_state.current_question_index} of {TOTAL_QUESTIONS}**")
+    st.markdown(f"### ✍️ Your Response — Question {st.session_state.current_question_index} of {TOTAL_QUESTIONS}")
 
     answer_key = f"answer_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
 
@@ -364,7 +548,6 @@ def render_response_input():
 
 
 def render_final_report():
-    """Render the final feedback report section."""
     if not st.session_state.interview_completed:
         return
 
@@ -426,9 +609,8 @@ def render_final_report():
 
 
 def render_history_page():
-    """Render the interview history page."""
     st.title("📜 Interview History")
-    st.markdown(f"Past interviews for **{st.session_state.username}**")
+    st.markdown(f'<p style="color: #a0a0b8;">Past interviews for <strong style="color:#667eea;">{st.session_state.username}</strong></p>', unsafe_allow_html=True)
     st.markdown("---")
 
     interviews = get_user_interviews(st.session_state.user_id)
@@ -480,28 +662,38 @@ def render_history_page():
 
 
 def render_interview_page():
-    """Render the main interview page."""
-    st.title("🎯 AI Mock Interview Platform")
-    st.markdown("Practice your interview skills with an AI interviewer!")
+    st.title("🎯 AI Mock Interview")
+    st.markdown('<p style="color: #a0a0b8; font-size: 1.1rem;">Practice your interview skills with AI-powered coaching</p>', unsafe_allow_html=True)
 
     if not st.session_state.interview_started:
         st.markdown("---")
+
         st.markdown("""
-        ### Welcome! 👋
+        <div class="hero-card">
+            <h3 style="color: #e0e0e0 !important; margin-top: 0;">Welcome! 👋</h3>
+            <p style="color: #c3cfe2;">Get ready to ace your next interview with personalized AI coaching.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-        **How it works:**
-        1. 📄 Upload your CV/Resume in the sidebar
-        2. 📝 Optionally paste the job description
-        3. ▶️ Click "Start Interview" to begin
-        4. ✍️ Answer questions using text input
-        5. 📊 Get instant feedback and a final report
-
-        **Features:**
-        - 📈 **Instant Scoring**: Get scored 0-10 on each answer
-        - 💡 **Pro Tips**: Actionable advice after each response
-        - 📋 **Final Report**: Comprehensive feedback with practice plan
-        - 📜 **History**: All interviews saved to your account
-        """)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            **How it works:**
+            1. 📄 Upload your CV/Resume in the sidebar
+            2. 📝 Optionally paste the job description
+            3. ▶️ Click "Start" to begin
+            4. ✍️ Answer questions using text input
+            5. 📊 Get instant feedback and a final report
+            """)
+        with col2:
+            st.markdown("""
+            **Features:**
+            - 📈 **Instant Scoring**: 0-10 on each answer
+            - 💡 **Pro Tips**: Actionable advice per response
+            - 🔊 **Voice Mode**: AI reads questions aloud
+            - 📋 **Final Report**: Feedback with practice plan
+            - 📜 **History**: All interviews saved
+            """)
     else:
         render_chat()
         render_response_input()
@@ -509,13 +701,13 @@ def render_interview_page():
 
 
 def main():
-    """Main application entry point."""
     st.set_page_config(
         page_title="AI Mock Interview",
         page_icon="🎯",
         layout="wide"
     )
 
+    inject_custom_css()
     init_db()
     init_session_state()
 
