@@ -296,89 +296,64 @@ Tip: {t}
 
     job_role = jd_text.split('\n')[0].strip() if jd_text else f"{seniority}-level role (based on CV)"
 
-    prompt = f"""You are an expert interview coach and hiring manager. Create a "Final Report: Feedback with Practice Plan" based strictly on the transcript and role context.
+    prompt = f"""You are an expert interview coach. Write a SHORT, CONCISE feedback report that's easy to scan and act on. No fluff — every sentence must be useful.
 
-Rules:
-- Be specific. No generic advice.
-- Cite evidence from the transcript in each weakness.
-- Provide an actionable plan with time estimates and measurable outcomes.
-- Do not invent details.
+CRITICAL: Keep the entire report under 500 words. Be punchy and direct. Use bullet points, not paragraphs.
 
 Write the report in this EXACT structure:
 
-# Final Report: Feedback with Practice Plan
+# Your Interview Performance Report
 
-## 1) Overall Score (out of 10)
-- Score:
-- One-paragraph summary:
+## 1) Overall Analysis
+- Performance: X/10
+- Summary (2–3 sentences max — what went well and what didn't)
 
-## 2) Score Breakdown (out of 10)
+## 2) Performance Breakdown
+Rate each (X/10, one line of evidence each):
 - Answer Structure:
 - Communication Clarity:
 - Confidence & Delivery:
 - Role Fit:
-- Technical/Domain Depth:
+- Technical Depth:
 - Problem Solving:
-- Examples & Evidence:
+- Use of Examples:
 
-## 3) Top Strengths (3–5)
-For each:
-- Strength:
-- Evidence from transcript:
-- Why it matters:
+## 3) What You Did Well
+3 bullet points max. Each: strength + one quote/evidence from transcript.
 
-## 4) Weak Areas & Skill Gaps (most important)
-For each:
-- Weak area:
-- Severity: High/Medium/Low
-- Evidence from transcript:
-- Why this is a problem:
-- Hiring impact:
-- Fix strategy:
+## 4) What Needs Work
+3 bullet points max. Each: weakness + evidence from transcript + one-line fix.
 
-## 5) Actionable Practice Plan (make weaknesses strong)
-### Daily plan (7 days)
-For each day:
-- Focus (1 line)
-- 2–4 exercises
-- Time required (minutes)
-- Success criteria (how to know it improved)
+## 5) How a Stronger Answer Would Sound
+Rewrite the weakest answer using STAR format. Keep it brief (4–5 sentences).
 
-### Weekly plan (4 weeks)
-Week 1–4:
-- Focus
-- Goals
-- Practice routines
-- Mock interview tasks
+## 6) Your 7-Day Action Plan
+One line per day:
+- Day 1: [Focus] — [Exercise] (X min)
+- Day 2–7: same format
 
-## 6) Sample Improved Answers (2 examples)
-- One behavioral using STAR
-- One role/technical using a clear framework
-Include: improved answer + why it's better.
-
-## 7) Next Interview Goals
-- Top 3 focus areas
-- Metrics to track
-- What to prepare before next session
+## 7) Before Your Next Interview
+3 bullet points: what to prepare, practice, and focus on.
 
 Context:
 Job Role: {job_role}
-Job Description (if provided): {jd_text if jd_text else "Not provided"}
-Resume Summary: {cv_text[:1500]}
+Job Description: {jd_text if jd_text else "Not provided"}
+Resume: {cv_text[:1000]}
+
 Interview Transcript:
 {qa_summary}
 
-AVERAGE SCORE: {sum(scores)/len(scores):.1f}/10
+AVERAGE PERFORMANCE: {sum(scores)/len(scores):.1f}/10
 
-Format the entire report in clean Markdown. Be thorough, specific, and reference the actual transcript content throughout."""
+Remember: SHORT and ACTIONABLE. No generic advice. Cite the transcript."""
 
     response = client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=[
-            {"role": "system", "content": "You are an expert interview coach and hiring manager. Provide brutally honest, specific feedback based strictly on the interview transcript. Never use generic advice. Always cite evidence from the transcript. Be encouraging but direct about weaknesses."},
+            {"role": "system", "content": "You are a concise interview coach. Write short, specific, actionable feedback. Never be generic. Always cite the transcript. Keep the total report under 500 words."},
             {"role": "user", "content": prompt}
         ],
-        max_completion_tokens=4000
+        max_completion_tokens=2000
     )
     
     return response.choices[0].message.content

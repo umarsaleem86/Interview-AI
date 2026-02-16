@@ -664,9 +664,34 @@ def render_final_report():
 
     st.markdown("---")
 
-    if not st.session_state.report_generated:
-        st.markdown("## 📋 Generating Your Comprehensive Feedback Report...")
-        with st.spinner("Analyzing your interview performance — this may take a moment..."):
+    if st.session_state.report_generated:
+        avg_score = sum(st.session_state.scores) / len(st.session_state.scores)
+
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); 
+            border: 1px solid rgba(102,126,234,0.3); border-radius: 16px; padding: 24px; margin-bottom: 20px;">
+            <h2 style="color: #e0e0f0; margin: 0 0 8px 0;">📋 Your Interview Performance Report</h2>
+            <p style="color: #a0a0b8; margin: 0;">Personalized analysis based on your interview</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        cols = st.columns(3)
+        with cols[0]:
+            st.metric("Overall Performance", f"{avg_score:.1f}/10")
+        with cols[1]:
+            st.metric("Questions Answered", len(st.session_state.answers))
+        with cols[2]:
+            performance = "Excellent" if avg_score >= 8 else "Good" if avg_score >= 6 else "Needs Work"
+            st.metric("Performance Level", performance)
+
+        st.markdown("---")
+        st.markdown(st.session_state.report_text)
+        st.markdown("---")
+        st.success("✅ This interview and report have been saved to your history.")
+        return
+
+    if st.button("📊 Generate Performance Report", type="primary", use_container_width=True):
+        with st.spinner("Analyzing your interview performance..."):
             try:
                 report = generate_final_report(
                     st.session_state.cv_text,
@@ -702,33 +727,6 @@ def render_final_report():
 
             except Exception as e:
                 st.error(f"Failed to generate report: {str(e)}")
-                return
-
-    avg_score = sum(st.session_state.scores) / len(st.session_state.scores)
-
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); 
-        border: 1px solid rgba(102,126,234,0.3); border-radius: 16px; padding: 24px; margin-bottom: 20px;">
-        <h2 style="color: #e0e0f0; margin: 0 0 8px 0;">📋 Final Report: Feedback with Practice Plan</h2>
-        <p style="color: #a0a0b8; margin: 0;">Comprehensive analysis based on your interview transcript</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    cols = st.columns(3)
-    with cols[0]:
-        st.metric("Average Score", f"{avg_score:.1f}/10")
-    with cols[1]:
-        st.metric("Questions Answered", len(st.session_state.answers))
-    with cols[2]:
-        performance = "Excellent" if avg_score >= 8 else "Good" if avg_score >= 6 else "Needs Work"
-        st.metric("Performance", performance)
-
-    st.markdown("---")
-
-    st.markdown(st.session_state.report_text)
-
-    st.markdown("---")
-    st.success("✅ This interview and report have been saved to your history.")
 
 
 def render_history_page():
