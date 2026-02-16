@@ -597,9 +597,11 @@ def render_response_input():
         )
 
         if audio_bytes:
-            if not st.session_state.has_recording:
-                st.session_state.has_recording = True
-                st.rerun()
+            st.session_state.recorded_audio = audio_bytes
+            st.session_state.has_recording = True
+
+        if st.session_state.has_recording and st.session_state.get('recorded_audio'):
+            stored_audio = st.session_state.recorded_audio
 
             st.markdown("""
             <div style="background: rgba(39,174,96,0.1); border: 1px solid rgba(39,174,96,0.3); 
@@ -609,14 +611,13 @@ def render_response_input():
             </div>
             """, unsafe_allow_html=True)
 
-            st.audio(audio_bytes, format="audio/wav")
+            st.audio(stored_audio, format="audio/wav")
 
             col_submit, col_rerecord = st.columns(2)
             with col_submit:
                 if st.button("📤 Submit Audio Answer", type="primary", use_container_width=True,
                              key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
                     st.session_state.processing = True
-                    st.session_state.has_recording = False
                     st.markdown("""
                     <div style="display: flex; align-items: center; gap: 12px; padding: 16px; 
                         background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); 
@@ -629,12 +630,14 @@ def render_response_input():
                     </div>
                     <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
                     """, unsafe_allow_html=True)
-                    transcribed_text, error = speech_to_text(audio_bytes)
+                    transcribed_text, error = speech_to_text(stored_audio)
                     if error:
                         st.session_state.processing = False
                         st.error(f"Could not transcribe audio: {error}")
                     elif transcribed_text:
                         st.info(f"**Transcribed:** {transcribed_text}")
+                        st.session_state.has_recording = False
+                        st.session_state.recorded_audio = None
                         process_answer(transcribed_text)
                         st.rerun()
                     else:
@@ -645,6 +648,7 @@ def render_response_input():
                              key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
                     st.session_state.recorder_version += 1
                     st.session_state.has_recording = False
+                    st.session_state.recorded_audio = None
                     st.rerun()
         else:
             st.markdown("""
