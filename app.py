@@ -221,6 +221,7 @@ def init_session_state():
         'report_generated': False,
         'report_text': '',
         'auto_speak_question': '',
+        'recorder_version': 0,
     }
 
     for key, value in defaults.items():
@@ -571,14 +572,15 @@ def render_response_input():
                 st.warning("Please enter your answer before submitting.")
 
     with tab_voice:
-        st.markdown("Click the microphone to start recording. Click again to stop.")
+        st.markdown("Click the microphone to start recording. Click again to stop. You have up to 30 seconds.")
         
-        recorder_key = f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
+        recorder_key = f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}_{st.session_state.recorder_version}"
         audio_bytes = audio_recorder(
             text="",
             recording_color="#e74c3c",
             neutral_color="#c3cfe2",
             icon_size="2x",
+            pause_threshold=30.0,
             key=recorder_key
         )
 
@@ -624,6 +626,7 @@ def render_response_input():
             with col_rerecord:
                 if st.button("🔄 Re-record", use_container_width=True,
                              key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
+                    st.session_state.recorder_version += 1
                     st.rerun()
         else:
             st.markdown("""
