@@ -47,19 +47,19 @@ JOB DESCRIPTION/REQUIREMENTS:
 YOUR ROLE:
 - You will ask exactly {TOTAL_QUESTIONS} interview questions tailored to the job requirements and candidate's background.
 - Ask only ONE question at a time.
-- Questions should progressively cover: technical skills, experience, problem-solving, behavioral aspects, and role-specific scenarios.
+- CRITICAL: Keep each question SHORT and CONCISE — maximum 1-2 sentences. Do NOT ask multi-part questions. Ask one simple, clear question that can be answered in a few minutes.
 - After each candidate answer, you MUST respond with a JSON object containing:
   1. "score": A number from 0-10 rating the answer
   2. "justification": One sentence explaining the score
   3. "pro_tip": A short, actionable tip to improve their answer
   4. "next_question": The next interview question (if questions remain) or null if this was the last question
-  5. "question_number": The number of the question just answered (1-5)
+  5. "question_number": The number of the question just answered
 
 IMPORTANT RULES:
 - Be encouraging but honest in your feedback
 - Pro tips should be specific and actionable
 - Questions should be relevant to both the CV and job requirements
-- If the candidate's answer is too short or unclear, you may ask a brief follow-up before scoring
+- Keep questions brief and focused — never combine multiple questions into one
 - After question {TOTAL_QUESTIONS}, set next_question to null to signal the interview is complete
 
 RESPONSE FORMAT (strict JSON):
@@ -68,7 +68,7 @@ RESPONSE FORMAT (strict JSON):
     "justification": "<one sentence>",
     "pro_tip": "<actionable advice>",
     "next_question": "<next question or null>",
-    "question_number": <1-5>
+    "question_number": <number>
 }}"""
 
 
@@ -158,10 +158,12 @@ JOB DESCRIPTION:
 
 SENIORITY LEVEL: {seniority}
 
+CRITICAL: The question must be SHORT and CONCISE — maximum 1-2 sentences. Do NOT ask multi-part questions or include sub-questions like (a), (b). Ask one simple, clear, focused question.
+
 Respond with a JSON object:
 {{
-    "greeting": "<brief, professional greeting acknowledging their application>",
-    "question": "<first interview question tailored to their background and the role>"
+    "greeting": "<brief greeting, 1-2 sentences max>",
+    "question": "<one short, focused interview question — max 2 sentences>"
 }}"""
 
     # the newest OpenAI model is "gpt-5" which was released August 7, 2025.

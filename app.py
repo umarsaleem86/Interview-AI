@@ -4,13 +4,14 @@ Main Streamlit application with interview functionality.
 """
 
 import json
+import base64
 import streamlit as st
 
 from audio_recorder_streamlit import audio_recorder
 
 from config import SENIORITY_LEVELS, TOTAL_QUESTIONS
 from utils.pdf_parser import parse_document
-from utils.voice import speech_to_text, auto_speak_tts_html, generate_tts_html
+from utils.voice import speech_to_text, text_to_speech
 from utils.interview_engine import (
     get_first_question,
     evaluate_answer_and_get_next,
@@ -489,13 +490,34 @@ def render_chat():
             if message['role'] == 'assistant' and 'Question' in message['content']:
                 if question_idx < len(st.session_state.questions):
                     q_text = st.session_state.questions[question_idx]
-                    st.components.v1.html(generate_tts_html(q_text), height=50)
+                    audio_key = f"tts_cache_{question_idx}"
+                    if audio_key in st.session_state:
+                        st.audio(st.session_state[audio_key], format="audio/wav")
+                    else:
+                        if st.button("🔊 Listen to Question", key=f"listen_{question_idx}"):
+                            with st.spinner("Generating audio..."):
+                                audio_bytes, error = text_to_speech(q_text)
+                                if audio_bytes:
+                                    st.session_state[audio_key] = audio_bytes
+                                    st.rerun()
+                                else:
+                                    st.error(f"Could not generate audio: {error}")
                     question_idx += 1
 
     if st.session_state.auto_speak_question:
         question_text = st.session_state.auto_speak_question
         st.session_state.auto_speak_question = ''
-        st.components.v1.html(auto_speak_tts_html(question_text), height=0)
+        with st.spinner("Generating question audio..."):
+            audio_bytes, error = text_to_speech(question_text)
+            if audio_bytes:
+                cache_idx = len(st.session_state.questions) - 1
+                cache_key = f"tts_cache_{cache_idx}"
+                st.session_state[cache_key] = audio_bytes
+                audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+                st.components.v1.html(
+                    f'<audio autoplay src="data:audio/wav;base64,{audio_b64}"></audio>',
+                    height=0
+                )
 
 
 def render_response_input():

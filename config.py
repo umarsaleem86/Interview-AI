@@ -11,7 +11,7 @@ This uses Replit AI Integrations for OpenAI access - no API key required.
 OPENAI_MODEL = "gpt-5-mini"
 
 # Voice settings - using gpt-audio for TTS and STT
-TTS_VOICE = "alloy"
+TTS_VOICE = "nova"
 
 TOTAL_QUESTIONS = 1
 
