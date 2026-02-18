@@ -90,11 +90,17 @@ def inject_custom_css():
         padding: 6px;
     }
 
+    .stTabs [data-baseweb="tab-list"] button {
+        flex: 1;
+    }
+
     .stTabs [data-baseweb="tab"] {
         border-radius: 8px;
         color: #8bb8d9 !important;
         font-weight: 500;
         padding: 10px 24px;
+        width: 100%;
+        justify-content: center;
     }
 
     .stTabs [aria-selected="true"] {
