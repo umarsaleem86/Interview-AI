@@ -555,18 +555,7 @@ def render_response_input():
     answer_key = f"answer_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
     recorder_key = f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}_{st.session_state.recorder_version}"
 
-    default_tab = 1 if st.session_state.has_recording else 0
-    tab_type, tab_voice = st.tabs(["⌨️ Type Answer", "🎙️ Record Answer"])
-
-    if st.session_state.has_recording:
-        st.components.v1.html("""
-        <script>
-        (function() {
-            var tabs = window.parent.document.querySelectorAll('[data-baseweb="tab"]');
-            if (tabs.length >= 2) { tabs[1].click(); }
-        })();
-        </script>
-        """, height=0)
+    tab_voice, tab_type = st.tabs(["🎙️ Record Answer", "⌨️ Type Answer"])
 
     with tab_type:
         text_answer = st.text_area(
