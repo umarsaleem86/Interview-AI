@@ -474,7 +474,7 @@ def start_interview():
         greeting = result.get('greeting', 'Welcome to your mock interview!')
         first_question = result.get('question', 'Tell me about yourself.')
 
-        full_message = f"{greeting}\n\n**Question 1/{TOTAL_QUESTIONS}:**\n{first_question}"
+        full_message = f"{greeting}\n\n**Question 1/{TOTAL_QUESTIONS}:** {first_question}"
 
         st.session_state.messages.append({
             'role': 'assistant',
@@ -543,7 +543,7 @@ def process_answer(transcription: str):
                 next_question = fallback_questions[q_idx]
 
             st.session_state.current_question_index += 1
-            feedback_message += f"\n\n---\n\n**Question {st.session_state.current_question_index}/{TOTAL_QUESTIONS}:**\n{next_question}"
+            feedback_message += f"\n\n---\n\n**Next Question:**\n{next_question}"
             st.session_state.questions.append(next_question)
             st.session_state.awaiting_answer = True
             st.session_state.auto_speak_question = next_question
@@ -720,75 +720,39 @@ def render_response_input():
         </style>
         <script>
         (function() {
-            function injectMicLabel() {
+            function updateMicLabel() {
                 const iframes = document.querySelectorAll('iframe');
-                let found = false;
                 iframes.forEach(iframe => {
-                    const container = iframe.parentElement;
-                    if (!container) return;
                     try {
                         const doc = iframe.contentDocument || iframe.contentWindow.document;
                         if (!doc) return;
+                        const textEl = doc.querySelector('p, span, .text');
+                        if (!textEl) return;
                         const svgs = doc.querySelectorAll('svg');
-                        if (svgs.length === 0) return;
-                        found = true;
-
-                        let label = container.querySelector('.mic-inline-label');
-                        if (!label) {
-                            label = document.createElement('div');
-                            label.className = 'mic-inline-label';
-                            label.style.cssText = 'display:flex; align-items:center; gap:8px; margin-left:12px; white-space:nowrap;';
-                            container.style.display = 'flex';
-                            container.style.alignItems = 'center';
-                            container.appendChild(label);
-                        }
-
                         let isRecording = false;
                         svgs.forEach(svg => {
                             const fill = svg.getAttribute('fill') || '';
                             if (fill.includes('#e74c3c') || fill === 'red') isRecording = true;
                         });
-
                         if (isRecording) {
-                            label.innerHTML = '<div style="width:10px;height:10px;border-radius:50%;background:#e74c3c;animation:recPulse 1s ease-in-out infinite;"></div><span style="color:#e74c3c;font-weight:700;font-size:0.95rem;">Finish recording your answer</span>';
+                            textEl.textContent = 'Finish recording your answer';
+                            textEl.style.color = '#e74c3c';
+                            textEl.style.fontWeight = '700';
                         } else {
-                            label.innerHTML = '<span style="color:#b0d4f1;font-weight:600;font-size:0.95rem;">Start recording your answer</span>';
+                            textEl.textContent = 'Start recording your answer';
+                            textEl.style.color = '#b0d4f1';
+                            textEl.style.fontWeight = '600';
                         }
                     } catch(e) {}
                 });
-                if (!found) {
-                    const allSvgs = document.querySelectorAll('svg');
-                    allSvgs.forEach(svg => {
-                        if (!svg.closest('[class*="audio"]')) return;
-                        const container = svg.closest('[class*="audio"]') || svg.parentElement;
-                        if (!container) return;
-                        found = true;
-                        let label = container.querySelector('.mic-inline-label');
-                        if (!label) {
-                            label = document.createElement('div');
-                            label.className = 'mic-inline-label';
-                            label.style.cssText = 'display:flex; align-items:center; gap:8px; margin-left:12px; white-space:nowrap;';
-                            container.style.display = 'flex';
-                            container.style.alignItems = 'center';
-                            container.appendChild(label);
-                        }
-                        const fill = svg.getAttribute('fill') || '';
-                        const isRec = fill.includes('#e74c3c') || fill === 'red';
-                        if (isRec) {
-                            label.innerHTML = '<div style="width:10px;height:10px;border-radius:50%;background:#e74c3c;animation:recPulse 1s ease-in-out infinite;"></div><span style="color:#e74c3c;font-weight:700;font-size:0.95rem;">Finish recording your answer</span>';
-                        } else {
-                            label.innerHTML = '<span style="color:#b0d4f1;font-weight:600;font-size:0.95rem;">Start recording your answer</span>';
-                        }
-                    });
-                }
             }
-            setInterval(injectMicLabel, 400);
+            setInterval(updateMicLabel, 400);
         })();
         </script>
         """, unsafe_allow_html=True)
 
         audio_bytes = audio_recorder(
-            text="",
+            text="Start recording your answer",
             recording_color="#e74c3c",
             neutral_color="#b0d4f1",
             icon_size="2x",
