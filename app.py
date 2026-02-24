@@ -717,72 +717,74 @@ def render_response_input():
             50% { opacity: 0.4; transform: scale(1.3); }
             100% { opacity: 1; transform: scale(1); }
         }
-        @keyframes recBarAnim {
-            0%, 100% { height: 8px; }
-            25% { height: 20px; }
-            50% { height: 14px; }
-            75% { height: 22px; }
-        }
         </style>
         <script>
         (function() {
-            function watchRecorder() {
-                const startLabel = document.getElementById('mic-label-start');
-                const recLabel = document.getElementById('mic-label-recording');
-                if (!startLabel || !recLabel) { setTimeout(watchRecorder, 500); return; }
+            function injectMicLabel() {
+                const iframes = document.querySelectorAll('iframe');
+                let found = false;
+                iframes.forEach(iframe => {
+                    const container = iframe.parentElement;
+                    if (!container) return;
+                    try {
+                        const doc = iframe.contentDocument || iframe.contentWindow.document;
+                        if (!doc) return;
+                        const svgs = doc.querySelectorAll('svg');
+                        if (svgs.length === 0) return;
+                        found = true;
 
-                setInterval(() => {
-                    let isRecording = false;
+                        let label = container.querySelector('.mic-inline-label');
+                        if (!label) {
+                            label = document.createElement('div');
+                            label.className = 'mic-inline-label';
+                            label.style.cssText = 'display:flex; align-items:center; gap:8px; margin-left:12px; white-space:nowrap;';
+                            container.style.display = 'flex';
+                            container.style.alignItems = 'center';
+                            container.appendChild(label);
+                        }
+
+                        let isRecording = false;
+                        svgs.forEach(svg => {
+                            const fill = svg.getAttribute('fill') || '';
+                            if (fill.includes('#e74c3c') || fill === 'red') isRecording = true;
+                        });
+
+                        if (isRecording) {
+                            label.innerHTML = '<div style="width:10px;height:10px;border-radius:50%;background:#e74c3c;animation:recPulse 1s ease-in-out infinite;"></div><span style="color:#e74c3c;font-weight:700;font-size:0.95rem;">Finish recording your answer</span>';
+                        } else {
+                            label.innerHTML = '<span style="color:#b0d4f1;font-weight:600;font-size:0.95rem;">Start recording your answer</span>';
+                        }
+                    } catch(e) {}
+                });
+                if (!found) {
                     const allSvgs = document.querySelectorAll('svg');
                     allSvgs.forEach(svg => {
+                        if (!svg.closest('[class*="audio"]')) return;
+                        const container = svg.closest('[class*="audio"]') || svg.parentElement;
+                        if (!container) return;
+                        found = true;
+                        let label = container.querySelector('.mic-inline-label');
+                        if (!label) {
+                            label = document.createElement('div');
+                            label.className = 'mic-inline-label';
+                            label.style.cssText = 'display:flex; align-items:center; gap:8px; margin-left:12px; white-space:nowrap;';
+                            container.style.display = 'flex';
+                            container.style.alignItems = 'center';
+                            container.appendChild(label);
+                        }
                         const fill = svg.getAttribute('fill') || '';
-                        const style = svg.getAttribute('style') || '';
-                        if ((fill.includes('#e74c3c') || style.includes('#e74c3c') || fill.includes('red')) && svg.closest('[class*="audio"]')) {
-                            isRecording = true;
+                        const isRec = fill.includes('#e74c3c') || fill === 'red';
+                        if (isRec) {
+                            label.innerHTML = '<div style="width:10px;height:10px;border-radius:50%;background:#e74c3c;animation:recPulse 1s ease-in-out infinite;"></div><span style="color:#e74c3c;font-weight:700;font-size:0.95rem;">Finish recording your answer</span>';
+                        } else {
+                            label.innerHTML = '<span style="color:#b0d4f1;font-weight:600;font-size:0.95rem;">Start recording your answer</span>';
                         }
                     });
-                    const iframes = document.querySelectorAll('iframe');
-                    iframes.forEach(iframe => {
-                        try {
-                            const doc = iframe.contentDocument || iframe.contentWindow.document;
-                            doc.querySelectorAll('svg').forEach(svg => {
-                                const fill = svg.getAttribute('fill') || '';
-                                if (fill.includes('#e74c3c') || fill === 'red') isRecording = true;
-                            });
-                        } catch(e) {}
-                    });
-                    startLabel.style.display = isRecording ? 'none' : 'flex';
-                    recLabel.style.display = isRecording ? 'flex' : 'none';
-                }, 300);
+                }
             }
-            if (document.readyState === 'complete') watchRecorder();
-            else window.addEventListener('load', watchRecorder);
+            setInterval(injectMicLabel, 400);
         })();
         </script>
-
-        <div id="mic-label-start" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;
-            background: rgba(25,118,210,0.1); border: 1px solid rgba(41,182,246,0.3);
-            border-radius: 10px; margin: 8px 0;">
-            <span style="font-size: 1.2rem;">🎙️</span>
-            <span style="color: #b0d4f1; font-weight: 600; font-size: 1rem;">Start recording your answer</span>
-            <span style="color: #6a9ec0; font-size: 0.85rem; margin-left: auto;">Up to 30 seconds</span>
-        </div>
-
-        <div id="mic-label-recording" style="display: none; align-items: center; gap: 10px; padding: 12px 16px;
-            background: linear-gradient(135deg, rgba(231,76,60,0.15), rgba(192,57,43,0.15));
-            border: 1px solid rgba(231,76,60,0.4); border-radius: 10px; margin: 8px 0;">
-            <div style="width: 12px; height: 12px; border-radius: 50%; background: #e74c3c;
-                animation: recPulse 1s ease-in-out infinite;"></div>
-            <span style="color: #e74c3c; font-weight: 700; font-size: 1rem;">Finish recording your answer</span>
-            <div style="display: flex; align-items: center; gap: 3px; margin-left: 8px;">
-                <div style="width: 3px; background: #e74c3c; border-radius: 2px; animation: recBarAnim 0.8s ease-in-out infinite;"></div>
-                <div style="width: 3px; background: #e74c3c; border-radius: 2px; animation: recBarAnim 0.8s ease-in-out 0.1s infinite;"></div>
-                <div style="width: 3px; background: #e74c3c; border-radius: 2px; animation: recBarAnim 0.8s ease-in-out 0.2s infinite;"></div>
-                <div style="width: 3px; background: #e74c3c; border-radius: 2px; animation: recBarAnim 0.8s ease-in-out 0.3s infinite;"></div>
-                <div style="width: 3px; background: #e74c3c; border-radius: 2px; animation: recBarAnim 0.8s ease-in-out 0.4s infinite;"></div>
-            </div>
-            <span style="color: #f5b7b1; font-size: 0.85rem; margin-left: auto;">Click mic to stop</span>
-        </div>
         """, unsafe_allow_html=True)
 
         audio_bytes = audio_recorder(
