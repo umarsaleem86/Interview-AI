@@ -719,175 +719,138 @@ def render_response_input():
     col_voice, col_text = st.columns([3, 2])
 
     with col_voice:
-        st.markdown("""
-        <style>
-        @keyframes waveMove {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 200% 50%; }
-        }
+        import streamlit.components.v1 as components
+        mic_html = """
+        <html><head><style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: transparent; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         @keyframes rippleOut {
-            0% { transform: scale(1); opacity: 0.6; }
-            100% { transform: scale(2.2); opacity: 0; }
+            0% { transform: translate(-50%,-50%) scale(1); opacity: 0.5; }
+            100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; }
         }
-        @keyframes waveBounce {
-            0%, 100% { transform: scaleY(0.3); }
-            50% { transform: scaleY(1); }
+        @keyframes idlePulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(74,111,208,0.3); }
+            50% { transform: scale(1.03); box-shadow: 0 0 20px 4px rgba(74,111,208,0.15); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(74,111,208,0.3); }
         }
-        .mic-banner {
-            background: linear-gradient(135deg, #3b5fc0 0%, #4a8bd4 40%, #5ba3e0 70%, #4a8bd4 100%);
-            border-radius: 14px;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            position: relative;
-            overflow: hidden;
-            min-height: 80px;
-            transition: background 0.5s ease;
+        @keyframes recPulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,60,60,0.4); }
+            50% { transform: scale(1.06); box-shadow: 0 0 25px 8px rgba(255,60,60,0.2); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,60,60,0.4); }
         }
-        .mic-banner::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(90deg, 
-                transparent 0%, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, 
-                rgba(255,255,255,0.05) 75%, transparent 100%);
-            background-size: 200% 100%;
-            animation: waveMove 3s linear infinite;
+        .mic-container {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 16px 10px 10px;
+            background: linear-gradient(160deg, #3b5fc0 0%, #4a8bd4 45%, #5ba3e0 100%);
+            border-radius: 16px; position: relative; overflow: hidden;
+            transition: background 0.6s ease;
         }
-        .mic-icon-wrap {
-            position: relative; z-index: 1; flex-shrink: 0;
-            width: 70px; height: 70px;
+        .mic-container.recording {
+            background: linear-gradient(160deg, #1a3d8f 0%, #2558b0 45%, #3070c8 100%);
+        }
+        .mic-circle-wrap {
+            position: relative; width: 100px; height: 100px;
             display: flex; align-items: center; justify-content: center;
         }
-        .mic-ripple {
+        .ripple-ring {
             position: absolute; top: 50%; left: 50%;
-            width: 60px; height: 60px;
-            margin-top: -30px; margin-left: -30px;
-            border-radius: 50%;
-            border: 2px solid rgba(255,80,80,0.6);
-            opacity: 0;
+            width: 80px; height: 80px; border-radius: 50%;
+            transform: translate(-50%,-50%) scale(1);
+            border: 2.5px solid rgba(255,70,70,0.5);
+            opacity: 0; pointer-events: none;
         }
-        .mic-icon-circle {
-            width: 56px; height: 56px; border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 100%);
+        .mic-circle {
+            width: 72px; height: 72px; border-radius: 50%;
+            background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 100%);
             display: flex; align-items: center; justify-content: center;
             position: relative; z-index: 2;
-            transition: all 0.4s ease;
+            animation: idlePulse 3s ease-in-out infinite;
+            transition: background 0.4s ease;
         }
-        .mic-icon-circle svg { width: 28px; height: 28px; fill: white; }
-        .mic-text { position: relative; z-index: 1; }
-        .mic-status { color: #ffffff; font-weight: 700; font-size: 1.05rem; }
-        .mic-hint { color: rgba(255,255,255,0.8); font-size: 0.9rem; font-weight: 400; }
-        .wave-dots {
-            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
-            display: flex; gap: 3px; z-index: 1; align-items: center;
+        .mic-circle.recording {
+            background: radial-gradient(circle at 40% 35%, rgba(255,80,80,0.5) 0%, rgba(200,40,40,0.2) 60%, rgba(160,30,30,0.05) 100%);
+            animation: recPulse 1.2s ease-in-out infinite;
         }
-        .wave-dot {
-            width: 3px; border-radius: 2px; background: rgba(255,255,255,0.4);
-            transition: background 0.3s ease;
+        .mic-circle svg {
+            width: 34px; height: 34px; fill: white;
+            transition: fill 0.3s ease;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
         }
-        </style>
-        """, unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="mic-banner" id="mic-banner">
-            <div class="mic-icon-wrap" id="mic-icon-wrap">
-                <div class="mic-ripple" id="mic-ripple-1"></div>
-                <div class="mic-ripple" id="mic-ripple-2"></div>
-                <div class="mic-ripple" id="mic-ripple-3"></div>
-                <div class="mic-icon-circle" id="mic-icon-circle">
+        .mic-circle.recording svg { fill: #ff6b6b; }
+        .mic-label {
+            color: white; font-weight: 700; font-size: 14px;
+            margin-top: 10px; text-align: center;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .mic-sublabel {
+            color: rgba(255,255,255,0.75); font-size: 12px;
+            margin-top: 3px; text-align: center;
+        }
+        </style></head><body>
+        <div class="mic-container" id="mc">
+            <div class="mic-circle-wrap">
+                <div class="ripple-ring" id="r1"></div>
+                <div class="ripple-ring" id="r2"></div>
+                <div class="ripple-ring" id="r3"></div>
+                <div class="mic-circle" id="micCircle">
                     <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                 </div>
             </div>
-            <div class="mic-text">
-                <div class="mic-status" id="mic-status-text">🎙️ Click mic below to start</div>
-                <div class="mic-hint" id="mic-hint-text">Speak your answer clearly</div>
-            </div>
-            <div class="wave-dots" id="wave-dots"></div>
+            <div class="mic-label" id="micLabel">🎙️ Click mic below to start</div>
+            <div class="mic-sublabel" id="micSub">Speak your answer clearly</div>
         </div>
         <script>
-        (function() {
-            function generateWaveDots() {
-                var container = document.getElementById('wave-dots');
-                if (!container || container.children.length > 0) return;
-                for (var i = 0; i < 20; i++) {
-                    var dot = document.createElement('div');
-                    dot.className = 'wave-dot';
-                    dot.style.height = (8 + Math.random() * 24) + 'px';
-                    container.appendChild(dot);
-                }
-            }
-            var wasRecording = false;
-            function updateBanner() {
-                var iframes = document.querySelectorAll('iframe');
-                var isRecording = false;
-                for (var i = 0; i < iframes.length; i++) {
-                    try {
-                        var doc = iframes[i].contentDocument || iframes[i].contentWindow.document;
-                        if (!doc) continue;
-                        var svgs = doc.querySelectorAll('svg');
-                        for (var j = 0; j < svgs.length; j++) {
-                            var fill = svgs[j].getAttribute('fill') || '';
-                            if (fill.indexOf('#e74c3c') !== -1 || fill === 'red') { isRecording = true; break; }
-                        }
-                    } catch(e) {}
-                    if (isRecording) break;
-                }
-                var status = document.getElementById('mic-status-text');
-                var hint = document.getElementById('mic-hint-text');
-                var banner = document.getElementById('mic-banner');
-                var circle = document.getElementById('mic-icon-circle');
-                var r1 = document.getElementById('mic-ripple-1');
-                var r2 = document.getElementById('mic-ripple-2');
-                var r3 = document.getElementById('mic-ripple-3');
-                var dots = document.querySelectorAll('.wave-dot');
-                if (!status || !hint || !banner || !circle) return;
-
-                if (isRecording) {
-                    status.innerHTML = '<span style="color:#ffcdd2;">Recording...</span> Speak now';
-                    hint.textContent = 'Click mic again to stop';
-                    banner.style.background = 'linear-gradient(135deg, #1a3d8f 0%, #2558b0 30%, #3070c8 60%, #2558b0 100%)';
-
-                    circle.style.background = 'radial-gradient(circle, rgba(255,60,60,0.5) 0%, rgba(220,40,40,0.25) 60%, rgba(180,30,30,0.1) 100%)';
-                    circle.style.boxShadow = '0 0 12px rgba(255,60,60,0.5), 0 0 30px rgba(255,60,60,0.25)';
-                    var svg = circle.querySelector('svg');
-                    if (svg) { svg.style.fill = '#ff5252'; }
-
-                    if (r1) { r1.style.animation = 'rippleOut 1.8s ease-out infinite'; r1.style.borderColor = 'rgba(255,80,80,0.6)'; }
-                    if (r2) { r2.style.animation = 'rippleOut 1.8s ease-out 0.6s infinite'; r2.style.borderColor = 'rgba(255,80,80,0.4)'; }
-                    if (r3) { r3.style.animation = 'rippleOut 1.8s ease-out 1.2s infinite'; r3.style.borderColor = 'rgba(255,80,80,0.25)'; }
-
-                    for (var d = 0; d < dots.length; d++) {
-                        dots[d].style.background = 'rgba(255,180,180,0.8)';
-                        dots[d].style.animation = 'waveBounce 0.5s ease-in-out ' + (d * 0.06) + 's infinite';
+        (function(){
+            function detect() {
+                var isRec = false;
+                try {
+                    var p = window.parent.document;
+                    var ifs = p.querySelectorAll('iframe');
+                    for (var i=0; i<ifs.length; i++) {
+                        try {
+                            var d = ifs[i].contentDocument || ifs[i].contentWindow.document;
+                            if (!d) continue;
+                            var svgs = d.querySelectorAll('svg');
+                            for (var j=0; j<svgs.length; j++) {
+                                var f = svgs[j].getAttribute('fill')||'';
+                                if (f.indexOf('#e74c3c')!==-1||f==='red'){isRec=true;break;}
+                            }
+                        } catch(e){}
+                        if(isRec) break;
                     }
+                } catch(e){}
+                var mc=document.getElementById('mc');
+                var c=document.getElementById('micCircle');
+                var r1=document.getElementById('r1');
+                var r2=document.getElementById('r2');
+                var r3=document.getElementById('r3');
+                var lb=document.getElementById('micLabel');
+                var sb=document.getElementById('micSub');
+                if(!mc||!c) return;
+                if(isRec){
+                    mc.classList.add('recording');
+                    c.classList.add('recording');
+                    if(r1){r1.style.animation='rippleOut 1.6s ease-out infinite';}
+                    if(r2){r2.style.animation='rippleOut 1.6s ease-out 0.5s infinite';}
+                    if(r3){r3.style.animation='rippleOut 1.6s ease-out 1.0s infinite';}
+                    if(lb) lb.innerHTML='<span style="color:#ffcdd2">Recording...</span> Speak now';
+                    if(sb) sb.textContent='Click mic again to stop';
                 } else {
-                    status.innerHTML = '🎙️ Click mic below to start';
-                    hint.textContent = 'Speak your answer clearly';
-                    banner.style.background = 'linear-gradient(135deg, #3b5fc0 0%, #4a8bd4 40%, #5ba3e0 70%, #4a8bd4 100%)';
-
-                    circle.style.background = 'radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 100%)';
-                    circle.style.boxShadow = 'none';
-                    var svg2 = circle.querySelector('svg');
-                    if (svg2) { svg2.style.fill = 'white'; }
-
-                    if (r1) { r1.style.animation = 'none'; r1.style.opacity = '0'; }
-                    if (r2) { r2.style.animation = 'none'; r2.style.opacity = '0'; }
-                    if (r3) { r3.style.animation = 'none'; r3.style.opacity = '0'; }
-
-                    for (var d2 = 0; d2 < dots.length; d2++) {
-                        dots[d2].style.background = 'rgba(255,255,255,0.4)';
-                        dots[d2].style.animation = 'none';
-                    }
+                    mc.classList.remove('recording');
+                    c.classList.remove('recording');
+                    if(r1){r1.style.animation='none';r1.style.opacity='0';}
+                    if(r2){r2.style.animation='none';r2.style.opacity='0';}
+                    if(r3){r3.style.animation='none';r3.style.opacity='0';}
+                    if(lb) lb.innerHTML='🎙️ Click mic below to start';
+                    if(sb) sb.textContent='Speak your answer clearly';
                 }
-                wasRecording = isRecording;
             }
-            generateWaveDots();
-            setInterval(updateBanner, 300);
+            setInterval(detect, 300);
         })();
         </script>
-        """, unsafe_allow_html=True)
+        </body></html>
+        """
+        components.html(mic_html, height=190)
 
         audio_bytes = audio_recorder(
             text="",
