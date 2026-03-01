@@ -408,19 +408,20 @@ def render_interview_sidebar():
 
         col1, col2 = st.columns(2)
         with col1:
-            quick_disabled = not quick_role.strip() or st.session_state.interview_started
-            if st.button("▶️ Start", disabled=quick_disabled, use_container_width=True, key="quick_start_btn"):
-                st.session_state.setup_mode = 'quick'
-                st.session_state.cv_text = f"Role: {quick_role.strip()}"
-                st.session_state.jd_text = f"{quick_role.strip()} position"
-                start_interview()
+            start_disabled = st.session_state.interview_started
+            if st.button("▶️ Start", disabled=start_disabled, use_container_width=True, key="quick_start_btn"):
+                role_value = quick_role.strip()
+                if role_value:
+                    st.session_state.setup_mode = 'quick'
+                    st.session_state.cv_text = f"Role: {role_value}"
+                    st.session_state.jd_text = f"{role_value} position"
+                    start_interview()
+                else:
+                    st.warning("Please enter a job role first, then click Start again.")
         with col2:
             if st.button("🔄 Restart", use_container_width=True, key="quick_restart_btn"):
                 reset_interview()
                 st.rerun()
-
-        if not quick_role.strip():
-            st.info("👆 Enter a job role to begin")
 
     with full_tab:
         st.markdown("*Upload your CV for tailored questions*")
