@@ -716,19 +716,146 @@ def render_response_input():
     answer_key = f"answer_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
     recorder_key = f"audio_{st.session_state.current_question_index}_{len(st.session_state.answers)}_{st.session_state.recorder_version}"
 
-    tab_voice, tab_type = st.tabs(["🎙️ Record Answer", "⌨️ Type Answer"])
+    col_voice, col_text = st.columns([3, 2])
 
-    with tab_type:
+    with col_voice:
+        st.markdown("""
+        <style>
+        @keyframes recPulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.3); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes waveMove {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        .mic-banner {
+            background: linear-gradient(135deg, #3b5fc0 0%, #4a8bd4 40%, #5ba3e0 70%, #4a8bd4 100%);
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+            overflow: hidden;
+            min-height: 80px;
+        }
+        .mic-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, 
+                transparent 0%, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, 
+                rgba(255,255,255,0.05) 75%, transparent 100%);
+            background-size: 200% 100%;
+            animation: waveMove 3s linear infinite;
+        }
+        .mic-icon-area {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 100%);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; position: relative; z-index: 1;
+        }
+        .mic-icon-area svg { width: 28px; height: 28px; fill: white; }
+        .mic-text { position: relative; z-index: 1; }
+        .mic-status { color: #ffffff; font-weight: 700; font-size: 1.05rem; }
+        .mic-hint { color: rgba(255,255,255,0.8); font-size: 0.9rem; font-weight: 400; }
+        .wave-dots {
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+            display: flex; gap: 3px; z-index: 1;
+        }
+        .wave-dot {
+            width: 3px; border-radius: 2px; background: rgba(255,255,255,0.4);
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="mic-banner" id="mic-banner">
+            <div class="mic-icon-area">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+            </div>
+            <div class="mic-text">
+                <div class="mic-status" id="mic-status-text">🎙️ Click mic below to start</div>
+                <div class="mic-hint" id="mic-hint-text">Speak your answer clearly</div>
+            </div>
+            <div class="wave-dots" id="wave-dots"></div>
+        </div>
+        <script>
+        (function() {
+            function generateWaveDots() {
+                const container = document.getElementById('wave-dots');
+                if (!container || container.children.length > 0) return;
+                for (let i = 0; i < 20; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'wave-dot';
+                    const h = 8 + Math.random() * 24;
+                    dot.style.height = h + 'px';
+                    dot.style.animationDelay = (i * 0.05) + 's';
+                    container.appendChild(dot);
+                }
+            }
+            function updateBanner() {
+                const iframes = document.querySelectorAll('iframe');
+                let isRecording = false;
+                iframes.forEach(iframe => {
+                    try {
+                        const doc = iframe.contentDocument || iframe.contentWindow.document;
+                        if (!doc) return;
+                        const svgs = doc.querySelectorAll('svg');
+                        svgs.forEach(svg => {
+                            const fill = svg.getAttribute('fill') || '';
+                            if (fill.includes('#e74c3c') || fill === 'red') isRecording = true;
+                        });
+                    } catch(e) {}
+                });
+                const status = document.getElementById('mic-status-text');
+                const hint = document.getElementById('mic-hint-text');
+                const banner = document.getElementById('mic-banner');
+                if (!status || !hint || !banner) return;
+                if (isRecording) {
+                    status.innerHTML = '<span style="color:#ffcdd2;">Recording...</span> Speak now';
+                    hint.textContent = 'Click mic again to stop';
+                    banner.style.background = 'linear-gradient(135deg, #1a47a0 0%, #2d6bc4 40%, #3b82d4 70%, #2d6bc4 100%)';
+                } else {
+                    status.innerHTML = '🎙️ Click mic below to start';
+                    hint.textContent = 'Speak your answer clearly';
+                    banner.style.background = 'linear-gradient(135deg, #3b5fc0 0%, #4a8bd4 40%, #5ba3e0 70%, #4a8bd4 100%)';
+                }
+            }
+            generateWaveDots();
+            setInterval(updateBanner, 400);
+        })();
+        </script>
+        """, unsafe_allow_html=True)
+
+        audio_bytes = audio_recorder(
+            text="",
+            recording_color="#e74c3c",
+            neutral_color="#4a6fd0",
+            icon_size="2x",
+            pause_threshold=30.0,
+            key=recorder_key
+        )
+
+        if audio_bytes:
+            st.session_state.recorded_audio = audio_bytes
+            st.session_state.has_recording = True
+
+    with col_text:
+        st.markdown("**Type Answer**")
         text_answer = st.text_area(
             "Type your answer here",
             key=answer_key,
-            height=150,
-            placeholder="Take your time and provide a detailed response..."
+            height=120,
+            placeholder="Type your answer here...",
+            label_visibility="collapsed"
         )
 
         submit_key = f"submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
 
-        if st.button("📤 Submit Answer", type="primary", key=submit_key, use_container_width=True):
+        if st.button("📝 Submit Text Answer", key=submit_key, use_container_width=True):
             if text_answer.strip():
                 st.session_state.processing = True
                 st.markdown("""
@@ -746,123 +873,57 @@ def render_response_input():
             else:
                 st.warning("Please enter your answer before submitting.")
 
-        if len(st.session_state.answers) >= 1:
-            finish_interview_button(f"finish_text_{st.session_state.current_question_index}")
+    if st.session_state.has_recording and st.session_state.get('recorded_audio'):
+        stored_audio = st.session_state.recorded_audio
 
-    with tab_voice:
         st.markdown("""
-        <style>
-        @keyframes recPulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(1.3); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-        </style>
-        <script>
-        (function() {
-            function updateMicLabel() {
-                const iframes = document.querySelectorAll('iframe');
-                iframes.forEach(iframe => {
-                    try {
-                        const doc = iframe.contentDocument || iframe.contentWindow.document;
-                        if (!doc) return;
-                        const textEl = doc.querySelector('p, span, .text');
-                        if (!textEl) return;
-                        const svgs = doc.querySelectorAll('svg');
-                        let isRecording = false;
-                        svgs.forEach(svg => {
-                            const fill = svg.getAttribute('fill') || '';
-                            if (fill.includes('#e74c3c') || fill === 'red') isRecording = true;
-                        });
-                        if (isRecording) {
-                            textEl.textContent = 'Finish recording your answer';
-                            textEl.style.color = '#e74c3c';
-                            textEl.style.fontWeight = '700';
-                        } else {
-                            textEl.textContent = 'Start recording your answer';
-                            textEl.style.color = getComputedStyle(document.documentElement).getPropertyValue('--text-mic-idle').trim() || '#4a6fd0';
-                            textEl.style.fontWeight = '600';
-                        }
-                    } catch(e) {}
-                });
-            }
-            setInterval(updateMicLabel, 400);
-        })();
-        </script>
+        <div style="background: rgba(39,174,96,0.08); border: 1px solid rgba(39,174,96,0.2); 
+            border-radius: 12px; padding: 12px 16px; margin: 12px 0;">
+            <span style="color: #27ae60; font-weight: 600;">✅ Recording captured!</span>
+            <span style="color: var(--text-secondary);"> Preview below, then submit or re-record.</span>
+        </div>
         """, unsafe_allow_html=True)
 
-        audio_bytes = audio_recorder(
-            text="Start recording your answer",
-            recording_color="#e74c3c",
-            neutral_color="#4a6fd0",
-            icon_size="2x",
-            pause_threshold=30.0,
-            key=recorder_key
-        )
+        st.audio(stored_audio, format="audio/wav")
 
-        if audio_bytes:
-            st.session_state.recorded_audio = audio_bytes
-            st.session_state.has_recording = True
-
-        if st.session_state.has_recording and st.session_state.get('recorded_audio'):
-            stored_audio = st.session_state.recorded_audio
-
+        if st.button("🎤 Submit Audio Answer", type="primary", use_container_width=True,
+                     key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
+            st.session_state.processing = True
             st.markdown("""
-            <div style="background: rgba(39,174,96,0.1); border: 1px solid rgba(39,174,96,0.3); 
-                border-radius: 10px; padding: 12px; margin: 8px 0;">
-                <span style="color: #27ae60; font-weight: 600;">✅ Recording captured!</span>
-                <span style="color: var(--text-secondary);"> Preview below, then submit or re-record.</span>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px; 
+                background: linear-gradient(135deg, rgba(59,95,192,0.08), rgba(91,79,200,0.08)); 
+                border: 1px solid rgba(120,100,200,0.15); border-radius: 12px; margin: 8px 0;">
+                <div style="width: 10px; height: 10px; border-radius: 50%; background: #4a6fd0; 
+                    animation: pulse 1s ease-in-out infinite alternate;"></div>
+                <span style="color: var(--text-loading); font-weight: 500;">
+                    Transcribing and evaluating your response...
+                </span>
             </div>
+            <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
             """, unsafe_allow_html=True)
+            transcribed_text, error = speech_to_text(stored_audio)
+            if error:
+                st.session_state.processing = False
+                st.error(f"Could not transcribe audio: {error}")
+            elif transcribed_text:
+                st.info(f"**Transcribed:** {transcribed_text}")
+                st.session_state.has_recording = False
+                st.session_state.recorded_audio = None
+                process_answer(transcribed_text)
+                st.rerun()
+            else:
+                st.session_state.processing = False
+                st.warning("No speech detected. Please try recording again.")
 
-            st.audio(stored_audio, format="audio/wav")
+        if st.button("🔄 Re-record", use_container_width=True,
+                     key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
+            st.session_state.recorder_version += 1
+            st.session_state.has_recording = False
+            st.session_state.recorded_audio = None
+            st.rerun()
 
-            col_submit, col_rerecord = st.columns(2)
-            with col_submit:
-                if st.button("📤 Submit Audio Answer", type="primary", use_container_width=True,
-                             key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
-                    st.session_state.processing = True
-                    st.markdown("""
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 16px; 
-                        background: linear-gradient(135deg, rgba(59,95,192,0.08), rgba(91,79,200,0.08)); 
-                        border: 1px solid rgba(120,100,200,0.15); border-radius: 12px; margin: 8px 0;">
-                        <div style="width: 10px; height: 10px; border-radius: 50%; background: #4a6fd0; 
-                            animation: pulse 1s ease-in-out infinite alternate;"></div>
-                        <span style="color: var(--text-loading); font-weight: 500;">
-                            Transcribing and evaluating your response...
-                        </span>
-                    </div>
-                    <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
-                    """, unsafe_allow_html=True)
-                    transcribed_text, error = speech_to_text(stored_audio)
-                    if error:
-                        st.session_state.processing = False
-                        st.error(f"Could not transcribe audio: {error}")
-                    elif transcribed_text:
-                        st.info(f"**Transcribed:** {transcribed_text}")
-                        st.session_state.has_recording = False
-                        st.session_state.recorded_audio = None
-                        process_answer(transcribed_text)
-                        st.rerun()
-                    else:
-                        st.session_state.processing = False
-                        st.warning("No speech detected. Please try recording again.")
-            with col_rerecord:
-                if st.button("🔄 Re-record", use_container_width=True,
-                             key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
-                    st.session_state.recorder_version += 1
-                    st.session_state.has_recording = False
-                    st.session_state.recorded_audio = None
-                    st.rerun()
-
-            if len(st.session_state.answers) >= 1:
-                finish_interview_button(f"finish_voice_rec_{st.session_state.current_question_index}")
-        else:
-            st.button("📤 Submit Audio Answer", type="primary", use_container_width=True, disabled=True,
-                      key=f"audio_submit_disabled_{st.session_state.current_question_index}_{len(st.session_state.answers)}")
-
-            if len(st.session_state.answers) >= 1:
-                finish_interview_button(f"finish_voice_{st.session_state.current_question_index}")
+    if len(st.session_state.answers) >= 1:
+        finish_interview_button(f"finish_{st.session_state.current_question_index}")
 
 
 def render_final_report():
