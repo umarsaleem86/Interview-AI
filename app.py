@@ -28,6 +28,17 @@ def inject_custom_css():
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+    :root {
+        --text-primary: #1a1a2e;
+        --text-secondary: #555;
+        --text-accent: #1565c0;
+        --text-loading: #1976d2;
+        --text-body: #333;
+        --text-hero-title: #2c3e50;
+        --text-hero-body: #555;
+        --text-mic-idle: #1976d2;
+    }
+
     @keyframes gradientShift {
         0% { background-position: 0% 50%; }
         25% { background-position: 50% 100%; }
@@ -37,43 +48,23 @@ def inject_custom_css():
     }
 
     .stApp {
-        background: linear-gradient(135deg, #0a1628, #0d2137, #0f2b4a, #0a1f3d, #081a30);
-        background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
-    }
-
-    @keyframes sidebarGlow {
-        0% { background-position: 0% 0%; }
-        50% { background-position: 100% 100%; }
-        100% { background-position: 0% 0%; }
+        background: linear-gradient(135deg, #f0f4f8, #e8eef5, #f5f7fa);
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0b1a2e, #0f2540, #112d4e, #0d2137);
-        background-size: 200% 200%;
-        animation: sidebarGlow 12s ease infinite;
-        border-right: 1px solid rgba(100,180,255,0.1);
+        background: linear-gradient(180deg, #e8eef5, #dce5f0, #e2eaf3);
+        border-right: 1px solid rgba(0,0,0,0.08);
     }
 
     [data-testid="stSidebar"] * {
-        color: #d0e4f7 !important;
-    }
-
-    @keyframes titleGlow {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+        color: #1a1a2e !important;
     }
 
     h1 {
-        background: linear-gradient(90deg, #4fc3f7, #29b6f6, #81d4fa, #03a9f4, #4dd0e1, #4fc3f7);
-        background-size: 300% 100%;
-        animation: titleGlow 6s ease infinite;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: #1565c0 !important;
         font-weight: 700 !important;
         font-size: 2.5rem !important;
+        -webkit-text-fill-color: #1565c0 !important;
     }
 
     h1 span {
@@ -81,12 +72,12 @@ def inject_custom_css():
     }
 
     h2, h3 {
-        color: #b0d4f1 !important;
+        color: #1a1a2e !important;
     }
 
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background: rgba(100,180,255,0.06);
+        background: rgba(0,0,0,0.04);
         border-radius: 12px;
         padding: 6px;
     }
@@ -97,7 +88,7 @@ def inject_custom_css():
 
     .stTabs [data-baseweb="tab"] {
         border-radius: 8px;
-        color: #8bb8d9 !important;
+        color: #444 !important;
         font-weight: 500;
         padding: 10px 24px;
         width: 100%;
@@ -121,76 +112,77 @@ def inject_custom_css():
         background-size: 200% 200%;
         animation: gradientShift 8s ease infinite;
         color: white !important;
-        box-shadow: 0 4px 15px rgba(25, 118, 210, 0.4);
+        box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
     }
 
     .stButton > button[kind="primary"]:hover {
-        box-shadow: 0 6px 25px rgba(25, 118, 210, 0.6);
+        box-shadow: 0 6px 25px rgba(25, 118, 210, 0.5);
         transform: translateY(-1px);
     }
 
     .stButton > button:not([kind="primary"]) {
-        background: rgba(100,180,255,0.08) !important;
-        color: #b0d4f1 !important;
-        border: 1px solid rgba(100,180,255,0.2) !important;
+        background: rgba(0,0,0,0.04) !important;
+        color: #333 !important;
+        border: 1px solid rgba(0,0,0,0.12) !important;
     }
 
     .stButton > button:not([kind="primary"]):hover {
-        background: rgba(100,180,255,0.15) !important;
+        background: rgba(0,0,0,0.08) !important;
     }
 
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
-        background: rgba(100,180,255,0.06) !important;
-        border: 1px solid rgba(100,180,255,0.15) !important;
+        background: #fff !important;
+        border: 1px solid rgba(0,0,0,0.15) !important;
         border-radius: 10px !important;
-        color: #d0e4f7 !important;
+        color: #000 !important;
     }
 
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #29b6f6 !important;
-        box-shadow: 0 0 10px rgba(41, 182, 246, 0.3) !important;
+        border-color: #1976d2 !important;
+        box-shadow: 0 0 8px rgba(25, 118, 210, 0.2) !important;
     }
 
     .stSelectbox > div > div {
-        background: rgba(100,180,255,0.06) !important;
-        border: 1px solid rgba(100,180,255,0.15) !important;
+        background: #fff !important;
+        border: 1px solid rgba(0,0,0,0.15) !important;
         border-radius: 10px !important;
+        color: #000 !important;
     }
 
     [data-testid="stMetric"] {
-        background: linear-gradient(135deg, rgba(25,118,210,0.12), rgba(2,136,209,0.12));
-        border: 1px solid rgba(41,182,246,0.25);
+        background: linear-gradient(135deg, rgba(25,118,210,0.08), rgba(2,136,209,0.08));
+        border: 1px solid rgba(25,118,210,0.15);
         border-radius: 12px;
         padding: 16px;
     }
 
     [data-testid="stMetric"] label {
-        color: #8bb8d9 !important;
+        color: #555 !important;
     }
 
     [data-testid="stMetric"] [data-testid="stMetricValue"] {
-        color: #4fc3f7 !important;
+        color: #1565c0 !important;
         font-weight: 700 !important;
     }
 
     [data-testid="stExpander"] {
-        background: rgba(100,180,255,0.04);
-        border: 1px solid rgba(100,180,255,0.1);
+        background: rgba(0,0,0,0.02);
+        border: 1px solid rgba(0,0,0,0.08);
         border-radius: 12px;
     }
 
     [data-testid="stChatMessage"] {
-        background: rgba(100,180,255,0.04) !important;
-        border: 1px solid rgba(100,180,255,0.08) !important;
+        background: rgba(0,0,0,0.02) !important;
+        border: 1px solid rgba(0,0,0,0.06) !important;
         border-radius: 12px !important;
         padding: 16px !important;
         margin-bottom: 12px !important;
     }
 
     .stMarkdown p, .stMarkdown li {
-        color: #b8d4ea;
+        color: #1a1a2e;
     }
 
     .stAlert > div {
@@ -198,15 +190,15 @@ def inject_custom_css():
     }
 
     [data-testid="stFileUploader"] {
-        background: rgba(100,180,255,0.04);
-        border: 1px dashed rgba(41,182,246,0.4);
+        background: rgba(25,118,210,0.03);
+        border: 1px dashed rgba(25,118,210,0.3);
         border-radius: 12px;
         padding: 8px;
     }
 
     .hero-card {
-        background: linear-gradient(135deg, rgba(25,118,210,0.1), rgba(2,136,209,0.1));
-        border: 1px solid rgba(41,182,246,0.2);
+        background: linear-gradient(135deg, rgba(25,118,210,0.06), rgba(2,136,209,0.06));
+        border: 1px solid rgba(25,118,210,0.12);
         border-radius: 16px;
         padding: 32px;
         margin: 16px 0;
@@ -224,16 +216,154 @@ def inject_custom_css():
     }
 
     hr {
-        border-color: rgba(100,180,255,0.1) !important;
+        border-color: rgba(0,0,0,0.08) !important;
     }
 
     .stDivider {
-        border-color: rgba(100,180,255,0.1) !important;
+        border-color: rgba(0,0,0,0.08) !important;
     }
 
     [data-testid="stSidebar"] .stDivider hr,
     [data-testid="stSidebar"] hr {
-        border-color: rgba(100,180,255,0.15) !important;
+        border-color: rgba(0,0,0,0.1) !important;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --text-primary: #d0e4f7;
+            --text-secondary: #8bb8d9;
+            --text-accent: #4fc3f7;
+            --text-loading: #b0d4f1;
+            --text-body: #b8d4ea;
+            --text-hero-title: #e0e0e0;
+            --text-hero-body: #c3cfe2;
+            --text-mic-idle: #b0d4f1;
+        }
+
+        .stApp {
+            background: linear-gradient(135deg, #0a1628, #0d2137, #0f2b4a, #0a1f3d, #081a30);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        [data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #0b1a2e, #0f2540, #112d4e, #0d2137);
+            background-size: 200% 200%;
+            border-right: 1px solid rgba(100,180,255,0.1);
+        }
+
+        [data-testid="stSidebar"] * {
+            color: #d0e4f7 !important;
+        }
+
+        h1 {
+            background: linear-gradient(90deg, #4fc3f7, #29b6f6, #81d4fa, #03a9f4, #4dd0e1, #4fc3f7);
+            background-size: 300% 100%;
+            animation: gradientShift 6s ease infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent !important;
+        }
+
+        h1 span {
+            -webkit-text-fill-color: initial !important;
+        }
+
+        h2, h3 {
+            color: #b0d4f1 !important;
+        }
+
+        .stTabs [data-baseweb="tab-list"] {
+            background: rgba(100,180,255,0.06);
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            color: #8bb8d9 !important;
+        }
+
+        .stButton > button[kind="primary"] {
+            box-shadow: 0 4px 15px rgba(25, 118, 210, 0.4);
+        }
+
+        .stButton > button:not([kind="primary"]) {
+            background: rgba(100,180,255,0.08) !important;
+            color: #b0d4f1 !important;
+            border: 1px solid rgba(100,180,255,0.2) !important;
+        }
+
+        .stButton > button:not([kind="primary"]):hover {
+            background: rgba(100,180,255,0.15) !important;
+        }
+
+        .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea {
+            background: rgba(100,180,255,0.06) !important;
+            border: 1px solid rgba(100,180,255,0.15) !important;
+            color: #d0e4f7 !important;
+        }
+
+        .stTextInput > div > div > input:focus,
+        .stTextArea > div > div > textarea:focus {
+            border-color: #29b6f6 !important;
+            box-shadow: 0 0 10px rgba(41, 182, 246, 0.3) !important;
+        }
+
+        .stSelectbox > div > div {
+            background: rgba(100,180,255,0.06) !important;
+            border: 1px solid rgba(100,180,255,0.15) !important;
+            color: #d0e4f7 !important;
+        }
+
+        [data-testid="stMetric"] {
+            background: linear-gradient(135deg, rgba(25,118,210,0.12), rgba(2,136,209,0.12));
+            border: 1px solid rgba(41,182,246,0.25);
+        }
+
+        [data-testid="stMetric"] label {
+            color: #8bb8d9 !important;
+        }
+
+        [data-testid="stMetric"] [data-testid="stMetricValue"] {
+            color: #4fc3f7 !important;
+        }
+
+        [data-testid="stExpander"] {
+            background: rgba(100,180,255,0.04);
+            border: 1px solid rgba(100,180,255,0.1);
+        }
+
+        [data-testid="stChatMessage"] {
+            background: rgba(100,180,255,0.04) !important;
+            border: 1px solid rgba(100,180,255,0.08) !important;
+        }
+
+        .stMarkdown p, .stMarkdown li {
+            color: #b8d4ea;
+        }
+
+        [data-testid="stFileUploader"] {
+            background: rgba(100,180,255,0.04);
+            border: 1px dashed rgba(41,182,246,0.4);
+        }
+
+        .hero-card {
+            background: linear-gradient(135deg, rgba(25,118,210,0.1), rgba(2,136,209,0.1));
+            border: 1px solid rgba(41,182,246,0.2);
+        }
+
+        hr {
+            border-color: rgba(100,180,255,0.1) !important;
+        }
+
+        .stDivider {
+            border-color: rgba(100,180,255,0.1) !important;
+        }
+
+        [data-testid="stSidebar"] .stDivider hr,
+        [data-testid="stSidebar"] hr {
+            border-color: rgba(100,180,255,0.15) !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -295,7 +425,7 @@ def render_auth_page():
 
     with col_main:
         st.markdown('<h1 style="margin-bottom: 0;"><span style="font-size: 1.1em;">🎯</span> AI Mock Interview</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="color: #8bb8d9; font-size: 1.2rem; margin-bottom: 24px;">Master your next job interview with AI-powered coaching</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: var(--text-secondary); font-size: 1.2rem; margin-bottom: 24px;">Master your next job interview with AI-powered coaching</p>', unsafe_allow_html=True)
 
         tab_login, tab_register = st.tabs(["🔑 Login", "✨ Create Account"])
 
@@ -595,7 +725,7 @@ def render_chat():
                                 background: rgba(25,118,210,0.1); border-radius: 8px;">
                                 <div style="width: 8px; height: 8px; border-radius: 50%; background: #29b6f6;
                                     animation: pulse 1s ease-in-out infinite alternate;"></div>
-                                <span style="color: #b0d4f1; font-size: 0.9rem;">Generating audio...</span>
+                                <span style="color: var(--text-loading); font-size: 0.9rem;">Generating audio...</span>
                             </div>
                             <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
                             """, unsafe_allow_html=True)
@@ -615,7 +745,7 @@ def render_chat():
             background: rgba(25,118,210,0.1); border-radius: 8px; margin: 8px 0;">
             <div style="width: 8px; height: 8px; border-radius: 50%; background: #29b6f6;
                 animation: pulse 1s ease-in-out infinite alternate;"></div>
-            <span style="color: #b0d4f1; font-size: 0.9rem;">Generating question audio...</span>
+            <span style="color: var(--text-loading); font-size: 0.9rem;">Generating question audio...</span>
         </div>
         <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
         """, unsafe_allow_html=True)
@@ -661,7 +791,7 @@ def render_response_input():
             border: 1px solid rgba(41,182,246,0.3); border-radius: 12px; margin: 16px 0;">
             <div style="width: 12px; height: 12px; border-radius: 50%; background: #29b6f6; 
                 animation: blink 1s ease-in-out infinite alternate;"></div>
-            <span style="color: #b0d4f1; font-size: 1.1rem; font-weight: 500;">
+            <span style="color: var(--text-loading); font-size: 1.1rem; font-weight: 500;">
                 Processing your response... Please wait
             </span>
         </div>
@@ -705,7 +835,7 @@ def render_response_input():
                     border: 1px solid rgba(41,182,246,0.3); border-radius: 10px;">
                     <div style="width: 10px; height: 10px; border-radius: 50%; background: #29b6f6;
                         animation: pulse 1s ease-in-out infinite alternate;"></div>
-                    <span style="color: #b0d4f1; font-weight: 500;">Evaluating your response...</span>
+                    <span style="color: var(--text-loading); font-weight: 500;">Evaluating your response...</span>
                 </div>
                 <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
                 """, unsafe_allow_html=True)
@@ -748,7 +878,7 @@ def render_response_input():
                             textEl.style.fontWeight = '700';
                         } else {
                             textEl.textContent = 'Start recording your answer';
-                            textEl.style.color = '#b0d4f1';
+                            textEl.style.color = getComputedStyle(document.documentElement).getPropertyValue('--text-mic-idle').trim() || '#1976d2';
                             textEl.style.fontWeight = '600';
                         }
                     } catch(e) {}
@@ -762,7 +892,7 @@ def render_response_input():
         audio_bytes = audio_recorder(
             text="Start recording your answer",
             recording_color="#e74c3c",
-            neutral_color="#b0d4f1",
+            neutral_color="#1976d2",
             icon_size="2x",
             pause_threshold=30.0,
             key=recorder_key
@@ -779,7 +909,7 @@ def render_response_input():
             <div style="background: rgba(39,174,96,0.1); border: 1px solid rgba(39,174,96,0.3); 
                 border-radius: 10px; padding: 12px; margin: 8px 0;">
                 <span style="color: #27ae60; font-weight: 600;">✅ Recording captured!</span>
-                <span style="color: #8bb8d9;"> Preview below, then submit or re-record.</span>
+                <span style="color: var(--text-secondary);"> Preview below, then submit or re-record.</span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -796,7 +926,7 @@ def render_response_input():
                         border: 1px solid rgba(41,182,246,0.3); border-radius: 12px; margin: 8px 0;">
                         <div style="width: 10px; height: 10px; border-radius: 50%; background: #29b6f6; 
                             animation: pulse 1s ease-in-out infinite alternate;"></div>
-                        <span style="color: #b0d4f1; font-weight: 500;">
+                        <span style="color: var(--text-loading); font-weight: 500;">
                             Transcribing and evaluating your response...
                         </span>
                     </div>
@@ -845,8 +975,8 @@ def render_final_report():
         st.markdown("""
         <div style="background: linear-gradient(135deg, rgba(25,118,210,0.12), rgba(2,136,209,0.12)); 
             border: 1px solid rgba(41,182,246,0.3); border-radius: 16px; padding: 24px; margin-bottom: 20px;">
-            <h2 style="color: #e0e0f0; margin: 0 0 8px 0;">📋 Your Interview Performance Report</h2>
-            <p style="color: #8bb8d9; margin: 0;">Personalized analysis based on your interview</p>
+            <h2 style="color: var(--text-hero-title); margin: 0 0 8px 0;">📋 Your Interview Performance Report</h2>
+            <p style="color: var(--text-secondary); margin: 0;">Personalized analysis based on your interview</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -872,7 +1002,7 @@ def render_final_report():
             border: 1px solid rgba(41,182,246,0.3); border-radius: 10px;">
             <div style="width: 10px; height: 10px; border-radius: 50%; background: #29b6f6;
                 animation: pulse 1s ease-in-out infinite alternate;"></div>
-            <span style="color: #b0d4f1; font-weight: 500;">Analyzing your interview performance...</span>
+            <span style="color: var(--text-loading); font-weight: 500;">Analyzing your interview performance...</span>
         </div>
         <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
         """, unsafe_allow_html=True)
@@ -953,7 +1083,7 @@ def format_interview_time(dt, tz_name):
 
 def render_history_page():
     st.title("📜 Interview History")
-    st.markdown(f'<p style="color: #8bb8d9;">Past interviews for <strong style="color:#4fc3f7;">{st.session_state.username}</strong></p>', unsafe_allow_html=True)
+    st.markdown(f'<p style="color: var(--text-secondary);">Past interviews for <strong style="color: var(--text-accent);">{st.session_state.username}</strong></p>', unsafe_allow_html=True)
     st.markdown("---")
 
     user_tz = get_user_timezone()
@@ -1008,7 +1138,7 @@ def render_history_page():
 
 def render_admin_page():
     st.markdown('<h1 style="margin-bottom: 0;"><span style="font-size: 1.1em;">🛠️</span> Admin Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #8bb8d9; font-size: 1.1rem;">Platform analytics, user insights, and data export</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color: var(--text-secondary); font-size: 1.1rem;">Platform analytics, user insights, and data export</p>', unsafe_allow_html=True)
     st.markdown("---")
 
     all_interviews = get_all_interviews_admin()
@@ -1272,15 +1402,15 @@ def render_admin_page():
 
 def render_interview_page():
     st.markdown('<h1 style="margin-bottom: 0;"><span style="font-size: 1.1em;">🎯</span> AI Mock Interview</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #8bb8d9; font-size: 1.1rem;">Practice your interview skills with AI-powered coaching</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color: var(--text-secondary); font-size: 1.1rem;">Practice your interview skills with AI-powered coaching</p>', unsafe_allow_html=True)
 
     if not st.session_state.interview_started:
         st.markdown("---")
 
         st.markdown("""
         <div class="hero-card">
-            <h3 style="color: #e0e0e0 !important; margin-top: 0;">Welcome! 👋</h3>
-            <p style="color: #c3cfe2;">Get ready to ace your next interview with personalized AI coaching.</p>
+            <h3 style="color: var(--text-hero-title) !important; margin-top: 0;">Welcome! 👋</h3>
+            <p style="color: var(--text-hero-body);">Get ready to ace your next interview with personalized AI coaching.</p>
         </div>
         """, unsafe_allow_html=True)
 
