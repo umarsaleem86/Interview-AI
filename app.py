@@ -577,6 +577,9 @@ def process_answer(transcription: str):
                 next_question = fallback_questions[q_idx]
 
             st.session_state.current_question_index += 1
+            st.session_state.has_recording = False
+            st.session_state.recorded_audio = None
+            st.session_state.recorder_version += 1
             feedback_message += f"\n\n---\n\n**Next Question:**\n{next_question}"
             st.session_state.questions.append(next_question)
             st.session_state.awaiting_answer = True
