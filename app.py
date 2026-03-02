@@ -718,6 +718,25 @@ def render_response_input():
 
     import streamlit.components.v1 as components
 
+    st.markdown("""
+    <style>
+    div[data-testid="stHorizontalBlock"]:has(iframe[height="280"]) {
+        align-items: stretch !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(iframe[height="280"]) > div[data-testid="stColumn"] {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(iframe[height="280"]) > div[data-testid="stColumn"]:last-child > div {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        height: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     col_voice, col_text = st.columns(2, gap="medium")
 
     with col_voice:
@@ -909,11 +928,15 @@ def render_response_input():
             st.session_state.has_recording = True
 
     with col_text:
-        st.markdown("**Type Answer**")
+        st.markdown("""
+        <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 6px;">
+            ⌨️ Type Answer
+        </div>
+        """, unsafe_allow_html=True)
         text_answer = st.text_area(
             "Type your answer here",
             key=answer_key,
-            height=200,
+            height=220,
             placeholder="Type your answer here...",
             label_visibility="collapsed"
         )
