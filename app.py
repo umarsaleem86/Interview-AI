@@ -291,6 +291,7 @@ def init_session_state():
         'has_recording': False,
         'quick_start_role': '',
         'setup_mode': 'quick',
+        'preferred_input': 'audio',
     }
 
     for key, value in defaults.items():
@@ -721,7 +722,10 @@ def render_response_input():
 
     import streamlit.components.v1 as components
 
-    tab_audio, tab_text = st.tabs(["🎙️ Record Answer", "⌨️ Type Answer"])
+    if st.session_state.preferred_input == 'text':
+        tab_text, tab_audio = st.tabs(["⌨️ Type Answer", "🎙️ Record Answer"])
+    else:
+        tab_audio, tab_text = st.tabs(["🎙️ Record Answer", "⌨️ Type Answer"])
 
     with tab_audio:
         mic_html = """
@@ -1074,6 +1078,7 @@ def render_response_input():
 
         if st.button("📝 Submit Text Answer", type="primary", key=submit_key, use_container_width=True):
             if text_answer.strip():
+                st.session_state.preferred_input = 'text'
                 st.session_state.processing = True
                 st.markdown("""
                 <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-top: 8px;
