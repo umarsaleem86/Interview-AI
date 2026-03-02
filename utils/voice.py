@@ -36,26 +36,27 @@ def text_to_speech(text: str, voice: str = "nova") -> Tuple[Optional[bytes], str
         return None, f"Text-to-speech failed: {str(e)}"
 
 
-def convert_to_wav(audio_bytes: bytes) -> bytes:
-    if audio_bytes[:4] == b'RIFF':
-        return audio_bytes
-
-    with tempfile.NamedTemporaryFile(suffix=".audio", delete=False) as inp:
+def compress_audio(audio_bytes: bytes) -> Tuple[bytes, str]:
+    MAX_SIZE = 20 * 1024 * 1024
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as inp:
         inp.write(audio_bytes)
         inp_path = inp.name
-    out_path = inp_path + ".wav"
+    out_path = inp_path + ".mp3"
     try:
         result = subprocess.run(
-            ["ffmpeg", "-y", "-i", inp_path, "-ar", "16000", "-ac", "1", "-f", "wav", out_path],
-            capture_output=True, timeout=30
+            ["ffmpeg", "-y", "-i", inp_path, "-ar", "16000", "-ac", "1", "-b:a", "64k", out_path],
+            capture_output=True, timeout=60
         )
-        if result.returncode != 0 or not os.path.exists(out_path):
-            return audio_bytes
-        with open(out_path, "rb") as f:
-            converted = f.read()
-        return converted if converted else audio_bytes
+        if result.returncode == 0 and os.path.exists(out_path):
+            with open(out_path, "rb") as f:
+                compressed = f.read()
+            if compressed and len(compressed) < MAX_SIZE:
+                return compressed, "recording.mp3"
+        if len(audio_bytes) < MAX_SIZE:
+            return audio_bytes, "recording.wav"
+        return audio_bytes, "recording.wav"
     except Exception:
-        return audio_bytes
+        return audio_bytes, "recording.wav"
     finally:
         for p in [inp_path, out_path]:
             try:
@@ -66,10 +67,10 @@ def convert_to_wav(audio_bytes: bytes) -> bytes:
 
 def speech_to_text(audio_bytes: bytes) -> Tuple[str, str]:
     try:
-        wav_bytes = convert_to_wav(audio_bytes)
+        processed_bytes, filename = compress_audio(audio_bytes)
         client = get_openai_client()
-        audio_file = io.BytesIO(wav_bytes)
-        audio_file.name = "recording.wav"
+        audio_file = io.BytesIO(processed_bytes)
+        audio_file.name = filename
         response = client.audio.transcriptions.create(
             model="gpt-4o-mini-transcribe",
             file=audio_file,
