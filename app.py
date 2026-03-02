@@ -899,7 +899,7 @@ def render_response_input():
         components.html(mic_html, height=230)
 
         audio_bytes = audio_recorder(
-            text="",
+            text="Click the mic button to START / STOP the recording",
             recording_color="#e74c3c",
             neutral_color="#4a6fd0",
             icon_size="2x",
