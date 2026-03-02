@@ -718,25 +718,6 @@ def render_response_input():
 
     import streamlit.components.v1 as components
 
-    st.markdown("""
-    <style>
-    div[data-testid="stHorizontalBlock"]:has(iframe[height="280"]) {
-        align-items: stretch !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(iframe[height="280"]) > div[data-testid="stColumn"] {
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(iframe[height="280"]) > div[data-testid="stColumn"]:last-child > div {
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        height: 100% !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
     col_voice, col_text = st.columns(2, gap="medium")
 
     with col_voice:
@@ -776,7 +757,7 @@ def render_response_input():
             justify-content: center; padding: 18px 12px 14px;
             background: linear-gradient(160deg, #3b5fc0 0%, #4a8bd4 45%, #5ba3e0 100%);
             border-radius: 16px; position: relative; overflow: hidden;
-            transition: background 0.6s ease; min-height: 240px;
+            transition: background 0.6s ease; min-height: 180px;
         }
         .mic-container.recording {
             background: linear-gradient(160deg, #1a3d8f 0%, #2558b0 45%, #3070c8 100%);
@@ -912,7 +893,17 @@ def render_response_input():
         </script>
         </body></html>
         """
-        components.html(mic_html, height=280)
+        components.html(mic_html, height=200)
+
+        st.markdown("""
+        <style>
+        div[data-testid="stAudioRecorder"] {
+            background: linear-gradient(135deg, rgba(59,95,192,0.06), rgba(91,79,200,0.06));
+            border: 1px solid rgba(120,100,200,0.12);
+            border-radius: 12px; padding: 6px 10px; margin-top: -8px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
         audio_bytes = audio_recorder(
             text="",
@@ -936,7 +927,7 @@ def render_response_input():
         text_answer = st.text_area(
             "Type your answer here",
             key=answer_key,
-            height=220,
+            height=180,
             placeholder="Type your answer here...",
             label_visibility="collapsed"
         )
