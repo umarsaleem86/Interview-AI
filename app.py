@@ -904,6 +904,59 @@ def render_response_input():
             key=recorder_key
         )
 
+        rec_status_html = """
+        <html><head><style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: transparent; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        @keyframes blink { 0% { opacity: 0.3; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1.2); } }
+        .rec-indicator {
+            display: none; align-items: center; gap: 10px; padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(231,76,60,0.08), rgba(255,100,80,0.08));
+            border: 1px solid rgba(231,76,60,0.2); border-radius: 10px;
+        }
+        .rec-indicator.visible { display: flex; }
+        .rec-dot {
+            width: 10px; height: 10px; border-radius: 50%; background: #e74c3c;
+            animation: blink 1s ease-in-out infinite alternate;
+        }
+        .rec-text { color: #c0392b; font-weight: 600; font-size: 0.95rem; }
+        </style></head><body>
+        <div class="rec-indicator" id="recInd">
+            <div class="rec-dot"></div>
+            <span class="rec-text">Recording answer in progress...</span>
+        </div>
+        <script>
+        (function(){
+            function check(){
+                var isRec=false;
+                try{
+                    var p=window.parent.document;
+                    var ifs=p.querySelectorAll('iframe');
+                    for(var i=0;i<ifs.length;i++){
+                        try{
+                            var d=ifs[i].contentDocument||ifs[i].contentWindow.document;
+                            if(!d)continue;
+                            var svgs=d.querySelectorAll('svg');
+                            for(var j=0;j<svgs.length;j++){
+                                var f=svgs[j].getAttribute('fill')||'';
+                                if(f.indexOf('#e74c3c')!==-1||f==='red'){isRec=true;break;}
+                            }
+                        }catch(e){}
+                        if(isRec)break;
+                    }
+                }catch(e){}
+                var el=document.getElementById('recInd');
+                if(!el)return;
+                if(isRec){el.classList.add('visible');}
+                else{el.classList.remove('visible');}
+            }
+            setInterval(check,300);
+        })();
+        </script>
+        </body></html>
+        """
+        components.html(rec_status_html, height=50)
+
         if audio_bytes:
             st.session_state.recorded_audio = audio_bytes
             st.session_state.has_recording = True
