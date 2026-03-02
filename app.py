@@ -895,46 +895,54 @@ def render_response_input():
         """
         components.html(mic_html, height=230)
 
-        st.markdown("""
-        <style>
-        .stAudioRecorder, div[data-testid="stAudioInput"] {
-            display: flex; justify-content: center; margin-top: -6px;
-        }
-        .stAudioRecorder iframe, div[data-testid="stAudioInput"] iframe {
-            border: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
         audio_bytes = audio_recorder(
-            text="Click to Record",
+            text="",
             recording_color="#e74c3c",
             neutral_color="#4a6fd0",
-            icon_size="3x",
+            icon_size="2x",
             pause_threshold=30.0,
             key=recorder_key
         )
 
-        rec_status_html = """
+        rec_inline_html = """
         <html><head><style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: transparent; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        @keyframes blink { 0% { opacity: 0.3; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1.2); } }
-        .rec-indicator {
-            display: none; align-items: center; gap: 10px; padding: 12px 16px;
-            background: linear-gradient(135deg, rgba(231,76,60,0.08), rgba(255,100,80,0.08));
-            border: 1px solid rgba(231,76,60,0.2); border-radius: 10px;
+        @keyframes pulseDot {
+            0% { opacity: 0.3; transform: scale(0.7); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0.3; transform: scale(0.7); }
         }
-        .rec-indicator.visible { display: flex; }
-        .rec-dot {
-            width: 10px; height: 10px; border-radius: 50%; background: #e74c3c;
-            animation: blink 1s ease-in-out infinite alternate;
+        @keyframes fadeSlide {
+            0% { opacity: 0; transform: translateX(-8px); }
+            100% { opacity: 1; transform: translateX(0); }
         }
-        .rec-text { color: #c0392b; font-weight: 600; font-size: 0.95rem; }
+        .inline-rec {
+            display: none; align-items: center; gap: 10px;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, rgba(59,95,192,0.06), rgba(91,79,200,0.06));
+            border: 1px solid rgba(120,100,200,0.15);
+            border-radius: 12px;
+        }
+        .inline-rec.visible {
+            display: flex;
+            animation: fadeSlide 0.3s ease-out;
+        }
+        .rec-circle {
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #e74c3c;
+            animation: pulseDot 1.2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        .rec-label {
+            color: var(--text-primary, #2d3748);
+            font-weight: 600; font-size: 0.95rem;
+        }
+        .rec-label span { color: #e74c3c; }
         </style></head><body>
-        <div class="rec-indicator" id="recInd">
-            <div class="rec-dot"></div>
-            <span class="rec-text">Recording answer in progress...</span>
+        <div class="inline-rec" id="inlineRec">
+            <div class="rec-circle"></div>
+            <div class="rec-label"><span>Recording answer...</span></div>
         </div>
         <script>
         (function(){
@@ -956,7 +964,7 @@ def render_response_input():
                         if(isRec)break;
                     }
                 }catch(e){}
-                var el=document.getElementById('recInd');
+                var el=document.getElementById('inlineRec');
                 if(!el)return;
                 if(isRec){el.classList.add('visible');}
                 else{el.classList.remove('visible');}
@@ -966,7 +974,7 @@ def render_response_input():
         </script>
         </body></html>
         """
-        components.html(rec_status_html, height=50)
+        components.html(rec_inline_html, height=45)
 
         if audio_bytes:
             st.session_state.recorded_audio = audio_bytes
