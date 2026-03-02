@@ -907,6 +907,105 @@ def render_response_input():
             key=recorder_key
         )
 
+        timer_html = """
+        <html><head><style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: transparent; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        @keyframes pulseDot {
+            0% { opacity: 0.4; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.15); }
+            100% { opacity: 0.4; transform: scale(0.8); }
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(4px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .timer-wrap {
+            display: none; align-items: center; justify-content: center; gap: 10px;
+            padding: 10px 20px;
+        }
+        .timer-wrap.visible {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .rec-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #e74c3c;
+            animation: pulseDot 1.2s ease-in-out infinite;
+            flex-shrink: 0;
+            box-shadow: 0 0 6px rgba(231,76,60,0.4);
+        }
+        .rec-label {
+            color: #e74c3c; font-weight: 600; font-size: 0.95rem;
+            letter-spacing: 0.3px;
+        }
+        .timer-display {
+            color: #2d3748; font-weight: 700; font-size: 1.1rem;
+            font-variant-numeric: tabular-nums;
+            min-width: 52px; text-align: center;
+            background: rgba(231,76,60,0.08);
+            border: 1px solid rgba(231,76,60,0.15);
+            border-radius: 8px; padding: 4px 12px;
+        }
+        </style></head><body>
+        <div class="timer-wrap" id="tw">
+            <div class="rec-dot"></div>
+            <span class="rec-label">Recording answer...</span>
+            <span class="timer-display" id="td">0:00</span>
+        </div>
+        <script>
+        (function(){
+            var tw = document.getElementById('tw');
+            var td = document.getElementById('td');
+            if (!tw || !td) return;
+            var startTime = 0;
+            var timerInterval = null;
+
+            function fmt(sec) {
+                var m = Math.floor(sec / 60);
+                var s = sec % 60;
+                return m + ':' + (s < 10 ? '0' : '') + s;
+            }
+
+            function startTimer() {
+                if (timerInterval) return;
+                startTime = Date.now();
+                td.textContent = '0:00';
+                tw.classList.add('visible');
+                timerInterval = setInterval(function() {
+                    var elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    td.textContent = fmt(elapsed);
+                }, 1000);
+            }
+
+            function stopTimer() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                tw.classList.remove('visible');
+            }
+
+            function handleMsg(e) {
+                try {
+                    var d = (typeof e.data === 'string') ? JSON.parse(e.data) : e.data;
+                    if (d && d.isRecording === true) startTimer();
+                    else if (d && d.isRecording === false) stopTimer();
+                } catch(ex) {}
+            }
+
+            window.addEventListener('message', handleMsg);
+            try {
+                if (window.parent && window.parent !== window) {
+                    window.parent.addEventListener('message', handleMsg);
+                }
+            } catch(e) {}
+        })();
+        </script>
+        </body></html>
+        """
+        components.html(timer_html, height=50)
+
         if audio_bytes:
             st.session_state.recorded_audio = audio_bytes
             st.session_state.has_recording = True
