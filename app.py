@@ -716,17 +716,18 @@ def render_response_input():
     answer_key = f"answer_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
     recorder_key = f"audio_recorder_{st.session_state.recorder_version}"
 
-    col_voice, col_text = st.columns([3, 2])
+    import streamlit.components.v1 as components
+
+    col_voice, col_text = st.columns(2, gap="medium")
 
     with col_voice:
-        import streamlit.components.v1 as components
         mic_html = """
         <html><head><style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: transparent; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         @keyframes rippleOut {
             0% { transform: translate(-50%,-50%) scale(1); opacity: 0.5; }
-            100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; }
+            100% { transform: translate(-50%,-50%) scale(2.8); opacity: 0; }
         }
         @keyframes idlePulse {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(74,111,208,0.3); }
@@ -735,21 +736,54 @@ def render_response_input():
         }
         @keyframes recPulse {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,60,60,0.4); }
-            50% { transform: scale(1.06); box-shadow: 0 0 25px 8px rgba(255,60,60,0.2); }
+            50% { transform: scale(1.08); box-shadow: 0 0 30px 10px rgba(255,60,60,0.2); }
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,60,60,0.4); }
+        }
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(6px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes textPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes dotBlink {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
         }
         .mic-container {
             display: flex; flex-direction: column; align-items: center;
-            justify-content: center; padding: 16px 10px 10px;
+            justify-content: center; padding: 18px 12px 14px;
             background: linear-gradient(160deg, #3b5fc0 0%, #4a8bd4 45%, #5ba3e0 100%);
             border-radius: 16px; position: relative; overflow: hidden;
-            transition: background 0.6s ease;
+            transition: background 0.6s ease; min-height: 240px;
         }
         .mic-container.recording {
             background: linear-gradient(160deg, #1a3d8f 0%, #2558b0 45%, #3070c8 100%);
         }
+        .rec-status {
+            display: none; margin-bottom: 12px; text-align: center;
+            animation: fadeInUp 0.4s ease-out;
+        }
+        .rec-status.visible { display: block; }
+        .rec-status-text {
+            color: #ff8a80; font-weight: 700; font-size: 15px;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 12px rgba(255,100,100,0.4);
+            animation: textPulse 1.5s ease-in-out infinite;
+        }
+        .rec-status-text .dot {
+            animation: dotBlink 1.4s ease-in-out infinite;
+            font-size: 18px;
+        }
+        .rec-status-text .dot:nth-child(2) { animation-delay: 0.2s; }
+        .rec-status-text .dot:nth-child(3) { animation-delay: 0.4s; }
+        .rec-status-sub {
+            color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 3px;
+        }
         .mic-circle-wrap {
-            position: relative; width: 100px; height: 100px;
+            position: relative; width: 110px; height: 110px;
             display: flex; align-items: center; justify-content: center;
         }
         .ripple-ring {
@@ -760,7 +794,7 @@ def render_response_input():
             opacity: 0; pointer-events: none;
         }
         .mic-circle {
-            width: 72px; height: 72px; border-radius: 50%;
+            width: 76px; height: 76px; border-radius: 50%;
             background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 100%);
             display: flex; align-items: center; justify-content: center;
             position: relative; z-index: 2;
@@ -772,22 +806,28 @@ def render_response_input():
             animation: recPulse 1.2s ease-in-out infinite;
         }
         .mic-circle svg {
-            width: 34px; height: 34px; fill: white;
+            width: 36px; height: 36px; fill: white;
             transition: fill 0.3s ease;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
         }
         .mic-circle.recording svg { fill: #ff6b6b; }
         .mic-label {
             color: white; font-weight: 700; font-size: 14px;
-            margin-top: 10px; text-align: center;
+            margin-top: 12px; text-align: center;
             text-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         .mic-sublabel {
-            color: rgba(255,255,255,0.75); font-size: 12px;
+            color: rgba(255,255,255,0.7); font-size: 12px;
             margin-top: 3px; text-align: center;
         }
         </style></head><body>
         <div class="mic-container" id="mc">
+            <div class="rec-status" id="recStatus">
+                <div class="rec-status-text">
+                    Recording<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span> Speak now
+                </div>
+                <div class="rec-status-sub">Click mic again to stop</div>
+            </div>
             <div class="mic-circle-wrap">
                 <div class="ripple-ring" id="r1"></div>
                 <div class="ripple-ring" id="r2"></div>
@@ -826,23 +866,26 @@ def render_response_input():
                 var r3=document.getElementById('r3');
                 var lb=document.getElementById('micLabel');
                 var sb=document.getElementById('micSub');
+                var rs=document.getElementById('recStatus');
                 if(!mc||!c) return;
                 if(isRec){
                     mc.classList.add('recording');
                     c.classList.add('recording');
+                    if(rs) rs.classList.add('visible');
                     if(r1){r1.style.animation='rippleOut 1.6s ease-out infinite';}
                     if(r2){r2.style.animation='rippleOut 1.6s ease-out 0.5s infinite';}
                     if(r3){r3.style.animation='rippleOut 1.6s ease-out 1.0s infinite';}
-                    if(lb) lb.innerHTML='<span style="color:#ffcdd2">Recording...</span> Speak now';
-                    if(sb) sb.textContent='Click mic again to stop';
+                    if(lb) lb.style.display='none';
+                    if(sb) sb.style.display='none';
                 } else {
                     mc.classList.remove('recording');
                     c.classList.remove('recording');
+                    if(rs) rs.classList.remove('visible');
                     if(r1){r1.style.animation='none';r1.style.opacity='0';}
                     if(r2){r2.style.animation='none';r2.style.opacity='0';}
                     if(r3){r3.style.animation='none';r3.style.opacity='0';}
-                    if(lb) lb.innerHTML='🎙️ Click mic below to start';
-                    if(sb) sb.textContent='Speak your answer clearly';
+                    if(lb) lb.style.display='block';
+                    if(sb) sb.style.display='block';
                 }
             }
             setInterval(detect, 300);
@@ -850,7 +893,7 @@ def render_response_input():
         </script>
         </body></html>
         """
-        components.html(mic_html, height=190)
+        components.html(mic_html, height=280)
 
         audio_bytes = audio_recorder(
             text="",
@@ -870,7 +913,7 @@ def render_response_input():
         text_answer = st.text_area(
             "Type your answer here",
             key=answer_key,
-            height=120,
+            height=200,
             placeholder="Type your answer here...",
             label_visibility="collapsed"
         )
