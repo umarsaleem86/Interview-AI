@@ -4,7 +4,7 @@ Main Streamlit application with interview functionality.
 """
 
 import json
-import base64
+
 from datetime import timezone
 from zoneinfo import ZoneInfo
 import streamlit as st
@@ -689,21 +689,7 @@ def render_chat():
             cache_idx = len(st.session_state.questions) - 1
             cache_key = f"tts_cache_{cache_idx}"
             st.session_state[cache_key] = audio_bytes
-            audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
-            st.components.v1.html(
-                f"""<script>
-                (function() {{
-                    var audio = new Audio("data:audio/wav;base64,{audio_b64}");
-                    audio.play().catch(function() {{
-                        document.addEventListener('click', function handler() {{
-                            audio.play();
-                            document.removeEventListener('click', handler);
-                        }}, {{once: true}});
-                    }});
-                }})();
-                </script>""",
-                height=0
-            )
+            st.audio(audio_bytes, format="audio/wav", autoplay=True)
 
 
 def finish_interview_button(key: str):
@@ -964,18 +950,7 @@ def get_user_timezone():
         if tz_param:
             st.session_state.user_tz = tz_param
         else:
-            st.components.v1.html("""
-            <script>
-            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const url = new URL(window.parent.location);
-            if (!url.searchParams.has('tz')) {
-                url.searchParams.set('tz', tz);
-                window.parent.history.replaceState({}, '', url);
-                window.parent.location.reload();
-            }
-            </script>
-            """, height=0)
-            return None
+            st.session_state.user_tz = "UTC"
 
     return st.session_state.user_tz
 
