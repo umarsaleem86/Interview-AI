@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Premium Recorder</title>
+  <script src="https://unpkg.com/streamlit-component-lib@1.4.0/dist/index.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: transparent;
+    }
+
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      border-radius: 14px;
+      background: #f7f7ff;
+      border: 1px solid #ddd;
+    }
+
+    .status {
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .start {
+      background: #4f46e5;
+      color: white;
+    }
+
+    .stop {
+      background: #ef4444;
+      color: white;
+    }
+
+    .disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    audio {
+      margin-top: 12px;
+      width: 100%;
+      max-width: 320px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="status" class="status">Ready to record</div>
+    <div class="row">
+      <button id="startBtn" class="start">Start Recording</button>
+      <button id="stopBtn" class="stop disabled" disabled>Stop Recording</button>
+    </div>
+    <audio id="player" controls style="display:none;"></audio>
+  </div>
+
+  <script>
+    const Streamlit = window.Streamlit;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let streamRef = null;
+
+    const statusEl = document.getElementById("status");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const player = document.getElementById("player");
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+      Streamlit.setFrameHeight();
+    }
+
+    function setButtons(isRecording) {
+      startBtn.disabled = isRecording;
+      stopBtn.disabled = !isRecording;
+      startBtn.classList.toggle("disabled", isRecording);
+      stopBtn.classList.toggle("disabled", !isRecording);
+    }
+
+    function sendValue(base64Audio) {
+      Streamlit.setComponentValue(base64Audio);
+    }
+
+    async function startRecording() {
+      try {
+        audioChunks = [];
+        streamRef = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        mediaRecorder = new MediaRecorder(streamRef);
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+
+          const fileReader = new FileReader();
+          fileReader.onloadend = () => {
+            const base64data = fileReader.result; // data:audio/webm;base64,...
+            player.src = base64data;
+            player.style.display = "block";
+            sendValue(base64data);
+            setStatus("Recording complete");
+          };
+          fileReader.readAsDataURL(audioBlob);
+
+          if (streamRef) {
+            streamRef.getTracks().forEach(track => track.stop());
+          }
+
+          setButtons(false);
+          Streamlit.setFrameHeight();
+        };
+
+        mediaRecorder.start();
+        setButtons(true);
+        setStatus("Recording...");
+      } catch (err) {
+        console.error(err);
+        setStatus("Microphone access denied or unavailable");
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+    }
+
+    startBtn.addEventListener("click", startRecording);
+    stopBtn.addEventListener("click", stopRecording);
+
+    function onRender(event) {
+      Streamlit.setFrameHeight();
+    }
+
+    Streamlit.events.addEventListener(Streamlit.RENDER_EVENT, onRender);
+    Streamlit.setComponentReady();
+    Streamlit.setFrameHeight();
+  </script>
+</body>
+</html>

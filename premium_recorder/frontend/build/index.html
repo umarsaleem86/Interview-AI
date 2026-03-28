@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Premium Audio Recorder</title>
+  <script src="https://unpkg.com/streamlit-component-lib@1.4.0/dist/index.js"></script>
+  <style>
+    :root {
+      --blue1: #3b5fc0;
+      --blue2: #5b4fc8;
+      --red1: #ef4444;
+      --red2: #dc2626;
+      --green1: #22c55e;
+      --bg: linear-gradient(135deg, #3b5fc0 0%, #5b4fc8 100%);
+      --panel: rgba(255,255,255,0.08);
+      --text: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .wrap {
+      width: 100%;
+      padding: 10px 8px 6px;
+    }
+
+    .card {
+      background: linear-gradient(135deg, rgba(59,95,192,0.96), rgba(91,79,200,0.96));
+      border-radius: 20px;
+      padding: 20px 18px 16px;
+      color: var(--text);
+      box-shadow: 0 12px 30px rgba(59,95,192,0.22);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card.recording {
+      background: linear-gradient(135deg, rgba(239,68,68,0.96), rgba(220,38,38,0.96));
+      box-shadow: 0 12px 34px rgba(239,68,68,0.24);
+    }
+
+    .card.ready {
+      background: linear-gradient(135deg, rgba(34,197,94,0.96), rgba(22,163,74,0.96));
+      box-shadow: 0 12px 34px rgba(34,197,94,0.24);
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .timer {
+      min-width: 72px;
+      text-align: right;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    .mid {
+      display: grid;
+      grid-template-columns: 116px 1fr;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .mic-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      width: 116px;
+      height: 116px;
+    }
+
+    .ring {
+      position: absolute;
+      width: 96px;
+      height: 96px;
+      border-radius: 999px;
+      border: 3px solid rgba(255,255,255,0.35);
+      opacity: 0;
+      transform: scale(0.85);
+    }
+
+    .card.recording .ring {
+      animation: pulse 1.5s ease-out infinite;
+      opacity: 1;
+    }
+
+    .card.recording .ring.r2 {
+      animation-delay: 0.45s;
+    }
+
+    .card.recording .ring.r3 {
+      animation-delay: 0.9s;
+    }
+
+    @keyframes pulse {
+      0%   { transform: scale(0.85); opacity: 0.7; }
+      100% { transform: scale(1.55); opacity: 0; }
+    }
+
+    .mic-btn {
+      width: 72px;
+      height: 72px;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.18);
+      color: white;
+      font-size: 28px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.16);
+      transition: transform 0.2s ease, background 0.2s ease;
+      z-index: 2;
+    }
+
+    .mic-btn:hover {
+      transform: translateY(-1px) scale(1.02);
+    }
+
+    .card.recording .mic-btn {
+      background: rgba(255,255,255,0.22);
+    }
+
+    .waves {
+      height: 70px;
+      display: flex;
+      align-items: end;
+      gap: 6px;
+      padding: 6px 4px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.10);
+    }
+
+    .bar {
+      width: 8px;
+      height: 18px;
+      background: rgba(255,255,255,0.92);
+      border-radius: 999px;
+      transform-origin: bottom;
+      animation: idleWave 1.5s ease-in-out infinite;
+      opacity: 0.35;
+    }
+
+    .card.recording .bar {
+      animation: liveWave 0.85s ease-in-out infinite;
+      opacity: 1;
+    }
+
+    .bar:nth-child(2) { animation-delay: 0.10s; }
+    .bar:nth-child(3) { animation-delay: 0.20s; }
+    .bar:nth-child(4) { animation-delay: 0.30s; }
+    .bar:nth-child(5) { animation-delay: 0.40s; }
+    .bar:nth-child(6) { animation-delay: 0.18s; }
+    .bar:nth-child(7) { animation-delay: 0.28s; }
+    .bar:nth-child(8) { animation-delay: 0.38s; }
+    .bar:nth-child(9) { animation-delay: 0.14s; }
+    .bar:nth-child(10){ animation-delay: 0.24s; }
+    .bar:nth-child(11){ animation-delay: 0.34s; }
+    .bar:nth-child(12){ animation-delay: 0.44s; }
+
+    @keyframes liveWave {
+      0%, 100% { height: 14px; }
+      50%      { height: 58px; }
+    }
+
+    @keyframes idleWave {
+      0%, 100% { height: 14px; }
+      50%      { height: 22px; }
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .action-btn {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.22);
+    }
+
+    .action-btn[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="card" class="card">
+      <div class="top">
+        <div>
+          <div id="title" class="title">🎙️ Start recording your answer</div>
+          <div id="subtitle" class="subtitle">Click the mic to begin.</div>
+        </div>
+        <div id="timer" class="timer">00:00</div>
+      </div>
+
+      <div class="mid">
+        <div class="mic-wrap">
+          <div class="ring r1"></div>
+          <div class="ring r2"></div>
+          <div class="ring r3"></div>
+          <button id="micBtn" class="mic-btn" title="Start / Stop recording">🎤</button>
+        </div>
+
+        <div class="waves">
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="retakeBtn" class="action-btn hidden">🔄 Re-record</button>
+        <button id="sendBtn" class="action-btn hidden">✅ Use this recording</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const card = document.getElementById("card");
+    const titleEl = document.getElementById("title");
+    const subtitleEl = document.getElementById("subtitle");
+    const timerEl = document.getElementById("timer");
+    const micBtn = document.getElementById("micBtn");
+    const sendBtn = document.getElementById("sendBtn");
+    const retakeBtn = document.getElementById("retakeBtn");
+
+    let mediaRecorder = null;
+    let streamRef = null;
+    let chunks = [];
+    let recordedBlob = null;
+    let isRecording = false;
+    let timerInterval = null;
+    let startedAt = null;
+
+    function setHeight() {
+      Streamlit.setFrameHeight(document.documentElement.scrollHeight + 6);
+    }
+
+    function formatTime(totalSec) {
+      const m = String(Math.floor(totalSec / 60)).padStart(2, "0");
+      const s = String(totalSec % 60).padStart(2, "0");
+      return `${m}:${s}`;
+    }
+
+    function startTimer() {
+      startedAt = Date.now();
+      timerEl.textContent = "00:00";
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        timerEl.textContent = formatTime(elapsed);
+      }, 250);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function setIdle() {
+      card.className = "card";
+      titleEl.textContent = "🎙️ Start recording your answer";
+      subtitleEl.textContent = "Click the mic to begin.";
+      micBtn.textContent = "🎤";
+      sendBtn.classList.add("hidden");
+      retakeBtn.classList.add("hidden");
+      setHeight();
+    }
+
+    function setRecording() {
+      card.className = "card recording";
+      titleEl.textContent = "🔴 Stop recording your answer";
+      subtitleEl.textContent = "Recording in progress... click the mic again to stop.";
+      micBtn.textContent = "⏹️";
+      sendBtn.classList.add("hidden");
+      retakeBtn.classList.add("hidden");
+      setHeight();
+    }
+
+    function setReady() {
+      card.className = "card ready";
+      titleEl.textContent = "✅ Recording captured";
+      subtitleEl.textContent = "Use this recording or record again.";
+      micBtn.textContent = "🎤";
+      sendBtn.classList.remove("hidden");
+      retakeBtn.classList.remove("hidden");
+      setHeight();
+    }
+
+    function stopTracks() {
+      if (streamRef) {
+        streamRef.getTracks().forEach(track => track.stop());
+        streamRef = null;
+      }
+    }
+
+    async function startRecording() {
+      try {
+        streamRef = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chunks = [];
+        recordedBlob = null;
+
+        mediaRecorder = new MediaRecorder(streamRef, { mimeType: "audio/webm" });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            chunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(chunks, { type: "audio/webm" });
+          isRecording = false;
+          stopTimer();
+          stopTracks();
+          setReady();
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        setRecording();
+        startTimer();
+
+        Streamlit.setComponentValue({ event: "recording_started" });
+      } catch (err) {
+        titleEl.textContent = "⚠️ Microphone access failed";
+        subtitleEl.textContent = err.message || "Please allow microphone permission.";
+        Streamlit.setComponentValue({ event: "error", error: err.message || "Microphone access failed" });
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        Streamlit.setComponentValue({ event: "recording_stopped" });
+      }
+    }
+
+    micBtn.addEventListener("click", async () => {
+      if (!isRecording && !recordedBlob) {
+        await startRecording();
+      } else if (isRecording) {
+        stopRecording();
+      } else if (recordedBlob) {
+        await startRecording();
+      }
+    });
+
+    retakeBtn.addEventListener("click", () => {
+      recordedBlob = null;
+      timerEl.textContent = "00:00";
+      setIdle();
+      Streamlit.setComponentValue({ event: "retake" });
+    });
+
+    sendBtn.addEventListener("click", () => {
+      if (!recordedBlob) return;
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result;
+        const audioB64 = dataUrl.split(",")[1];
+        const duration = Math.floor((Date.now() - startedAt) / 1000);
+
+        Streamlit.setComponentValue({
+          event: "recorded",
+          mime_type: "audio/webm",
+          audio_b64: audioB64,
+          duration_sec: duration
+        });
+      };
+      reader.readAsDataURL(recordedBlob);
+    });
+
+    function onRender(event) {
+      setHeight();
+    }
+
+    Streamlit.events.addEventListener(Streamlit.RENDER_EVENT, onRender);
+    Streamlit.setComponentReady();
+    setIdle();
+    setHeight();
+  </script>
+</body>
+</html>

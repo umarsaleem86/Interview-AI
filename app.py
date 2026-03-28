@@ -3,81 +3,129 @@ AI Mock Interview Platform
 Main Streamlit application with interview functionality.
 """
 
+import html
 import json
-
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-import streamlit as st
-
-from audio_recorder_streamlit import audio_recorder
 
 import pandas as pd
-from config import SENIORITY_LEVELS, TOTAL_QUESTIONS, ADMIN_USERNAME
-from utils.pdf_parser import parse_document
-from utils.voice import speech_to_text, text_to_speech
-from utils.db import create_session, get_session, delete_session
+import streamlit as st
+
+ADMIN_USERS = {"test10", "admin", "umar"}
+
+
+def is_admin_user(username: str) -> bool:
+    return (username or "").strip().lower() in {u.lower() for u in ADMIN_USERS}
+
+from config import SENIORITY_LEVELS, TOTAL_QUESTIONS
+from utils.db import (
+    create_session,
+    get_session,
+    delete_session,
+    init_db,
+    create_user,
+    verify_user,
+    save_interview,
+    get_user_interviews,
+    get_all_interviews_admin,
+    get_all_users_admin,
+)
 from utils.interview_engine import (
     get_first_question,
     evaluate_answer_and_get_next,
-    generate_final_report
+    generate_final_report,
 )
-from utils.db import init_db, create_user, verify_user, save_interview, get_user_interviews, get_all_interviews_admin, get_all_users_admin
+from utils.pdf_parser import parse_document
+from utils.voice import speech_to_text, text_to_speech
 
 
 def inject_custom_css():
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
     :root {
-        --text-primary: #2d2b3d;
-        --text-secondary: #6b6b8d;
-        --text-accent: #3b5fc0;
-        --text-loading: #4a6fd0;
-        --text-body: #4a4868;
-        --text-hero-title: #2d2b3d;
-        --text-hero-body: #6b6b8d;
-        --text-mic-idle: #4a6fd0;
+        --bg-main: #f4f5fb;
+        --bg-soft: #eef0f8;
+        --panel: rgba(255, 255, 255, 0.72);
+        --panel-strong: rgba(255, 255, 255, 0.88);
+        --panel-sidebar: linear-gradient(180deg, #f3f4fb 0%, #eceef8 100%);
+        --border: rgba(123, 132, 176, 0.18);
+        --border-strong: rgba(107, 123, 204, 0.28);
+        --text-primary: #2c3353;
+        --text-secondary: #677095;
+        --text-soft: #8b92b2;
+        --primary: #6f86ff;
+        --primary-2: #8a7dff;
+        --primary-3: #5e74ee;
+        --accent: #a99cff;
+        --success: #3bb273;
+        --warning: #ffbf47;
+        --danger: #ff6b6b;
+        --shadow-soft: 0 10px 30px rgba(93, 104, 150, 0.10);
+        --shadow-card: 0 12px 34px rgba(98, 109, 153, 0.12);
+        --shadow-hover: 0 16px 38px rgba(98, 109, 153, 0.16);
+        --radius-xl: 24px;
+        --radius-lg: 18px;
+        --radius-md: 14px;
+    }
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
     }
 
     .stApp {
-        background: linear-gradient(145deg, #eef1fa 0%, #e8ecf8 25%, #eae4f4 50%, #e8ecf8 75%, #eef1fa 100%);
+        background:
+            radial-gradient(circle at top left, rgba(152, 162, 255, 0.10), transparent 30%),
+            radial-gradient(circle at top right, rgba(192, 181, 255, 0.10), transparent 28%),
+            linear-gradient(180deg, #f8f9fd 0%, #f3f5fb 35%, #eef1f8 100%);
+        color: var(--text-primary);
+    }
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #f0eef8 0%, #ebe8f5 30%, #e6e3f2 60%, #eae8f4 100%);
-        border-right: 1px solid rgba(120,100,200,0.1);
-        box-shadow: 2px 0 20px rgba(100,80,180,0.05);
+        background: var(--panel-sidebar);
+        border-right: 1px solid rgba(122, 132, 176, 0.14);
+        box-shadow: 4px 0 28px rgba(110, 120, 166, 0.06);
+    }
+
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 1.4rem;
     }
 
     [data-testid="stSidebar"] * {
-        color: #2d2b3d !important;
+        color: var(--text-primary) !important;
     }
 
     h1 {
-        background: linear-gradient(135deg, #3b5fc0, #5b4fc8, #4a6fd0);
-        background-size: 200% 100%;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-weight: 700 !important;
-        font-size: 2.5rem !important;
-    }
-
-    h1 span {
-        -webkit-text-fill-color: initial !important;
+        color: var(--text-primary) !important;
+        font-weight: 800 !important;
+        font-size: 3rem !important;
+        letter-spacing: -0.03em;
+        margin-bottom: 0.2rem !important;
     }
 
     h2, h3 {
-        color: #2d2b3d !important;
+        color: var(--text-primary) !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em;
+    }
+
+    p, li, label, .stMarkdown, .stCaption {
+        color: var(--text-secondary);
     }
 
     .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
-        background: rgba(120,100,200,0.06);
+        gap: 6px;
+        background: rgba(255,255,255,0.55);
         border-radius: 14px;
         padding: 4px;
-        border: 1px solid rgba(120,100,200,0.1);
+        border: 1px solid rgba(123,132,176,0.14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
     }
 
     .stTabs [data-baseweb="tab-list"] button {
@@ -85,181 +133,358 @@ def inject_custom_css():
     }
 
     .stTabs [data-baseweb="tab"] {
-        border-radius: 10px;
-        color: #6b6b8d !important;
-        font-weight: 500;
-        padding: 10px 24px;
+        border-radius: 12px;
+        color: var(--text-secondary) !important;
+        font-weight: 600;
+        padding: 12px 18px;
         width: 100%;
         justify-content: center;
-        transition: all 0.3s ease;
+        transition: all 0.25s ease;
     }
 
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #3b5fc0, #5b4fc8) !important;
-        color: #ffffff !important;
-        box-shadow: 0 3px 12px rgba(59,95,192,0.35);
-    }
+/* =========================
+   BLUE SELECTED AREAS FIX
+   ========================= */
 
-    .stButton > button {
-        border-radius: 12px;
-        font-weight: 600;
-        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-        border: none;
-        letter-spacing: 0.02em;
-    }
+/* Tabs (Selected) */
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2)) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(111,134,255,0.26);
+}
+
+/* FORCE all nested text/icons inside selected tab */
+.stTabs [aria-selected="true"],
+.stTabs [aria-selected="true"] * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* Primary Buttons */
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2)) !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 20px rgba(111,134,255,0.24);
+}
+
+/* FORCE all nested content inside buttons */
+.stButton > button[kind="primary"],
+.stButton > button[kind="primary"] * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* Fix icons specifically */
+.stButton > button[kind="primary"] svg,
+.stTabs [aria-selected="true"] svg {
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* Fix segmented controls (Streamlit tabs/pills) */
+[data-baseweb="tab"][aria-selected="true"],
+[data-baseweb="tab"][aria-selected="true"] * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
 
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #3b5fc0 0%, #4a6fd0 50%, #5b7fdf 100%) !important;
+        background: linear-gradient(135deg, var(--primary), var(--primary-2)) !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 18px rgba(59,95,192,0.35);
+        box-shadow: 0 10px 20px rgba(111,134,255,0.24);
     }
 
     .stButton > button[kind="primary"]:hover {
-        box-shadow: 0 6px 28px rgba(59,95,192,0.45);
-        transform: translateY(-2px);
+        transform: translateY(-1px);
+        box-shadow: 0 14px 26px rgba(111,134,255,0.28);
     }
 
     .stButton > button:not([kind="primary"]) {
-        background: rgba(255,255,255,0.8) !important;
-        color: #4a4868 !important;
-        border: 1px solid rgba(120,100,200,0.18) !important;
+        background: rgba(255,255,255,0.72) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid rgba(123,132,176,0.18) !important;
+        box-shadow: 0 6px 16px rgba(98,109,153,0.08);
     }
 
     .stButton > button:not([kind="primary"]):hover {
-        background: rgba(255,255,255,1) !important;
-        border-color: rgba(120,100,200,0.3) !important;
-        box-shadow: 0 2px 10px rgba(100,80,180,0.08);
+        transform: translateY(-1px);
+        background: rgba(255,255,255,0.92) !important;
+        box-shadow: 0 12px 24px rgba(98,109,153,0.10);
     }
 
     .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea {
-        background: rgba(255,255,255,0.85) !important;
-        border: 1px solid rgba(120,100,200,0.15) !important;
-        border-radius: 12px !important;
-        color: #2d2b3d !important;
-    }
-
-    .stTextInput > div > div > input::placeholder,
-    .stTextArea > div > div > textarea::placeholder {
-        color: #9a98b2 !important;
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div,
+    .stFileUploader > div {
+        background: rgba(255,255,255,0.78) !important;
+        border: 1px solid rgba(123,132,176,0.18) !important;
+        border-radius: 14px !important;
+        color: var(--text-primary) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
     }
 
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #5b4fc8 !important;
-        box-shadow: 0 0 0 3px rgba(91,79,200,0.1) !important;
+        border-color: rgba(111,134,255,0.45) !important;
+        box-shadow: 0 0 0 4px rgba(111,134,255,0.10) !important;
     }
 
-    .stSelectbox > div > div {
-        background: rgba(255,255,255,0.85) !important;
-        border: 1px solid rgba(120,100,200,0.15) !important;
-        border-radius: 12px !important;
-        color: #2d2b3d !important;
+    .hero-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        padding: 34px;
+        margin: 22px 0;
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(14px);
     }
 
-    .stTextInput label, .stTextArea label, .stSelectbox label,
-    .stFileUploader label, .stRadio label, .stCheckbox label {
-        color: #5a5878 !important;
-    }
-
-    [data-testid="stMetric"] {
-        background: rgba(255,255,255,0.75);
-        border: 1px solid rgba(120,100,200,0.1);
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 2px 12px rgba(100,80,180,0.06);
-        backdrop-filter: blur(10px);
-    }
-
-    [data-testid="stMetric"] label {
-        color: #7a789a !important;
-        text-transform: uppercase;
-        font-size: 0.75rem !important;
-        letter-spacing: 0.08em;
-    }
-
-    [data-testid="stMetric"] [data-testid="stMetricValue"] {
-        color: #3b5fc0 !important;
-        font-weight: 700 !important;
-    }
-
-    [data-testid="stExpander"] {
-        background: rgba(255,255,255,0.7);
-        border: 1px solid rgba(120,100,200,0.08);
-        border-radius: 14px;
+    .response-header {
+        background: rgba(255,255,255,0.58);
+        border: 1px solid rgba(123,132,176,0.14);
+        border-radius: 18px;
+        padding: 18px 22px;
+        margin: 18px 0 14px 0;
+        box-shadow: var(--shadow-soft);
         backdrop-filter: blur(10px);
     }
 
     [data-testid="stChatMessage"] {
-        background: rgba(255,255,255,0.75) !important;
-        border: 1px solid rgba(120,100,200,0.08) !important;
-        border-radius: 14px !important;
-        padding: 18px !important;
-        margin-bottom: 14px !important;
-        box-shadow: 0 2px 8px rgba(100,80,180,0.04) !important;
-        backdrop-filter: blur(10px) !important;
+        background: transparent !important;
     }
 
-    .stMarkdown p, .stMarkdown li {
-        color: #4a4868;
+    [data-testid="stChatMessage"] > div {
+        border-radius: 22px !important;
     }
 
-    .stAlert > div {
-        border-radius: 12px !important;
+    .question-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 28px 30px;
+        box-shadow: var(--shadow-card);
+        backdrop-filter: blur(14px);
+        margin-bottom: 8px;
     }
 
-    [data-testid="stFileUploader"] {
-        background: rgba(255,255,255,0.7);
-        border: 1px dashed rgba(120,100,200,0.25);
-        border-radius: 14px;
-        padding: 10px;
-    }
-
-    .hero-card {
-        background: rgba(255,255,255,0.7);
-        border: 1px solid rgba(120,100,200,0.1);
-        border-radius: 20px;
-        padding: 36px;
-        margin: 20px 0;
-        box-shadow: 0 4px 20px rgba(100,80,180,0.06);
-        backdrop-filter: blur(10px);
-    }
-
-    .stat-pill {
-        display: inline-block;
-        background: linear-gradient(135deg, #3b5fc0, #5b4fc8);
-        color: #ffffff;
-        padding: 4px 14px;
-        border-radius: 20px;
+    .question-greeting {
+        color: var(--text-secondary);
+        font-size: 1rem;
         font-weight: 600;
-        font-size: 0.9rem;
-        margin: 2px 4px;
+        margin-bottom: 10px;
+        line-height: 1.7;
     }
 
-    .response-header {
-        background: linear-gradient(135deg, rgba(59,95,192,0.08), rgba(91,79,200,0.08));
-        border: 1px solid rgba(120,100,200,0.12);
+    .question-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 14px;
+    }
+
+    .question-text {
+        font-size: 1.12rem;
+        line-height: 1.8;
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .feedback-card {
+        background: var(--panel-strong);
+        border: 1px solid rgba(123,132,176,0.16);
+        border-radius: 22px;
+        padding: 26px 28px;
+        box-shadow: var(--shadow-card);
+    }
+
+    .feedback-score {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 14px;
+    }
+
+    .feedback-body {
+        color: var(--text-secondary);
+        font-size: 1rem;
+        line-height: 1.8;
+    }
+
+    .tip-box {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(123,132,176,0.12);
+        color: var(--text-secondary);
+        line-height: 1.8;
+    }
+
+    .next-question-divider {
+        margin-top: 24px;
+        margin-bottom: 16px;
+        border: none;
+        height: 1px;
+        background: linear-gradient(
+            to right,
+            transparent,
+            rgba(123,132,176,0.30),
+            transparent
+        );
+    }
+
+    .next-question-card {
+        margin-top: 10px;
+        margin-bottom: 16px;
+        padding: 24px 28px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.84), rgba(249,250,255,0.88));
+        border: 1px solid rgba(111,134,255,0.24);
+        border-radius: 22px;
+        box-shadow: 0 14px 34px rgba(98,109,153,0.12);
+        backdrop-filter: blur(14px);
+    }
+
+    .next-question-label {
+        font-size: 0.9rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--primary-3);
+        margin-bottom: 10px;
+    }
+
+    .next-question-title {
+        display: none;
+    }
+
+    .next-question-text {
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        line-height: 1.8;
+        font-weight: 500;
+        margin: 0;
+    }
+
+    .processing-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(238, 241, 249, 0.58);
+        backdrop-filter: blur(7px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999999;
+    }
+
+    .processing-modal {
+        width: min(660px, 92vw);
+        background: rgba(255,255,255,0.82);
+        border: 1px solid rgba(123,132,176,0.18);
+        border-radius: 28px;
+        box-shadow: 0 22px 60px rgba(98,109,153,0.18);
+        padding: 34px 30px;
+        text-align: center;
+        backdrop-filter: blur(16px);
+    }
+
+    .processing-icon {
+        width: 74px;
+        height: 74px;
+        margin: 0 auto 18px auto;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+        color: white;
+        box-shadow: 0 14px 30px rgba(111,134,255,0.22);
+        animation: processingPulse 1.8s ease-in-out infinite;
+    }
+
+    .processing-title {
+        font-size: 1.45rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 10px;
+        line-height: 1.35;
+    }
+
+    .processing-subtitle {
+        font-size: 1rem;
+        color: var(--text-secondary);
+        line-height: 1.7;
+        margin-bottom: 18px;
+    }
+
+    .processing-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: rgba(111,134,255,0.08);
+        color: var(--text-primary);
+        border: 1px solid rgba(111,134,255,0.14);
+        border-radius: 999px;
+        padding: 10px 18px;
+        font-size: 0.98rem;
+        font-weight: 700;
+    }
+
+    .processing-dots::after {
+        content: "";
+        display: inline-block;
+        width: 24px;
+        text-align: left;
+        animation: processingDots 1.4s infinite steps(1, end);
+    }
+
+    audio {
         border-radius: 14px;
-        padding: 16px 20px;
-        margin: 16px 0 12px 0;
+    }
+
+    [data-testid="stMetric"] {
+        background: rgba(255,255,255,0.68);
+        border: 1px solid rgba(123,132,176,0.14);
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: 0 8px 22px rgba(98,109,153,0.08);
     }
 
     hr {
-        border-color: rgba(120,100,200,0.08) !important;
+        border: none;
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(123,132,176,0.22), transparent);
     }
 
-    .stDivider {
-        border-color: rgba(120,100,200,0.08) !important;
+    @keyframes processingDots {
+        0%   { content: "."; }
+        33%  { content: ".."; }
+        66%  { content: "..."; }
+        100% { content: "."; }
     }
 
-    [data-testid="stSidebar"] .stDivider hr,
-    [data-testid="stSidebar"] hr {
-        border-color: rgba(120,100,200,0.12) !important;
-    }
-
-    [data-testid="stDataFrame"] {
-        border-radius: 14px;
-        overflow: hidden;
+    @keyframes processingPulse {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 14px 30px rgba(111,134,255,0.22);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 18px 36px rgba(111,134,255,0.28);
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -285,34 +510,41 @@ def _restore_session():
 
 def init_session_state():
     defaults = {
-        'logged_in': False,
-        'user_id': None,
-        'username': '',
-        'page': 'interview',
-        'cv_text': '',
-        'jd_text': '',
-        'messages': [],
-        'current_question_index': 0,
-        'questions': [],
-        'answers': [],
-        'scores': [],
-        'tips': [],
-        'justifications': [],
-        'interview_started': False,
-        'interview_completed': False,
-        'seniority': 'Mid',
-        'awaiting_answer': False,
-        'processing': False,
-        'report_generated': False,
-        'report_text': '',
-        'auto_speak_question': '',
-        'recorder_version': 0,
-        'has_recording': False,
-        'quick_start_role': '',
-        'setup_mode': 'quick',
-        'preferred_input': 'audio',
-        'session_token': '',
-        'session_restored': False,
+        "logged_in": False,
+        "user_id": None,
+        "username": "",
+        "page": "interview",
+        "cv_text": "",
+        "jd_text": "",
+        "job_role": "",
+        "messages": [],
+        "current_question_index": 0,
+        "questions": [],
+        "answers": [],
+        "scores": [],
+        "tips": [],
+        "justifications": [],
+        "interview_started": False,
+        "interview_completed": False,
+        "seniority": "Mid",
+        "awaiting_answer": False,
+        "processing": False,
+        "processing_mode": "",
+        "pending_start": False,
+        "pending_text_answer": "",
+        "pending_audio_bytes": None,
+        "report_generated": False,
+        "report_text": "",
+        "auto_speak_question": "",
+        "has_recording": False,
+        "recorded_audio": None,
+        "quick_start_role": "",
+        "setup_mode": "quick",
+        "preferred_input": "audio",
+        "session_token": "",
+        "session_restored": False,
+        "user_tz": None,
+        "recorder_version": 0,
     }
 
     for key, value in defaults.items():
@@ -336,22 +568,38 @@ def reset_interview():
     st.session_state.interview_completed = False
     st.session_state.awaiting_answer = False
     st.session_state.processing = False
+    st.session_state.processing_mode = ""
+    st.session_state.pending_start = False
+    st.session_state.pending_text_answer = ""
+    st.session_state.pending_audio_bytes = None
     st.session_state.report_generated = False
-    st.session_state.report_text = ''
-    st.session_state.auto_speak_question = ''
+    st.session_state.report_text = ""
+    st.session_state.auto_speak_question = ""
+    st.session_state.has_recording = False
+    st.session_state.recorded_audio = None
+    st.session_state.recorder_version = 0
+
+    keys_to_delete = [k for k in st.session_state.keys() if str(k).startswith("tts_cache_") or str(k).startswith("play_question_")]
+    for k in keys_to_delete:
+        del st.session_state[k]
 
 
 def render_auth_page():
     col_spacer1, col_main, col_spacer2 = st.columns([1, 2, 1])
 
     with col_main:
-        st.markdown('<h1 style="margin-bottom: 0;"><span style="font-size: 1.1em;">🎯</span> AI Mock Interview</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="color: var(--text-secondary); font-size: 1.2rem; margin-bottom: 24px;">Master your next job interview with AI-powered coaching</p>', unsafe_allow_html=True)
+        st.markdown(
+            '<h1 style="margin-bottom: 0;"><span style="font-size: 1.1em;">🎯</span> AI Mock Interview</h1>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p style="color: var(--text-secondary); font-size: 1.2rem; margin-bottom: 24px;">Master your next job interview with AI-powered coaching</p>',
+            unsafe_allow_html=True,
+        )
 
         tab_login, tab_register = st.tabs(["🔑 Login", "✨ Create Account"])
 
         with tab_login:
-            st.markdown("")
             login_username = st.text_input("Username", key="login_username", placeholder="Enter your username")
             login_password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
 
@@ -372,7 +620,6 @@ def render_auth_page():
                     st.warning("Please enter both username and password")
 
         with tab_register:
-            st.markdown("")
             reg_username = st.text_input("Choose a Username", key="reg_username", placeholder="At least 3 characters")
             reg_password = st.text_input("Choose a Password", type="password", key="reg_password", placeholder="At least 6 characters")
             reg_password2 = st.text_input("Confirm Password", type="password", key="reg_password2", placeholder="Re-enter your password")
@@ -400,25 +647,25 @@ def render_sidebar():
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.username}")
 
-        is_admin = st.session_state.username == ADMIN_USERNAME
+        is_admin = is_admin_user(st.session_state.username)
 
         col_nav1, col_nav2 = st.columns(2)
         with col_nav1:
             if st.button("🎯 Interview", use_container_width=True):
-                st.session_state.page = 'interview'
+                st.session_state.page = "interview"
                 st.rerun()
         with col_nav2:
             if st.button("📜 History", use_container_width=True):
-                st.session_state.page = 'history'
+                st.session_state.page = "history"
                 st.rerun()
 
         if is_admin:
             if st.button("🛠️ Admin Dashboard", use_container_width=True):
-                st.session_state.page = 'admin'
+                st.session_state.page = "admin"
                 st.rerun()
 
         if st.button("🚪 Logout", use_container_width=True):
-            token = st.session_state.get('session_token', '')
+            token = st.session_state.get("session_token", "")
             if token:
                 delete_session(token)
             for key in list(st.session_state.keys()):
@@ -428,7 +675,7 @@ def render_sidebar():
 
         st.divider()
 
-        if st.session_state.page == 'interview':
+        if st.session_state.page == "interview":
             render_interview_sidebar()
 
 
@@ -443,7 +690,7 @@ def render_interview_sidebar():
         quick_role = st.text_input(
             "Job Role",
             value=st.session_state.quick_start_role,
-            placeholder="e.g. Frontend Developer, Data Analyst..."
+            placeholder="e.g. Frontend Developer, Data Analyst...",
         )
         st.session_state.quick_start_role = quick_role
 
@@ -451,7 +698,7 @@ def render_interview_sidebar():
             "Seniority Level",
             SENIORITY_LEVELS,
             index=SENIORITY_LEVELS.index(st.session_state.seniority),
-            key="seniority_quick"
+            key="seniority_quick",
         )
         st.session_state.seniority = seniority_q
 
@@ -459,14 +706,17 @@ def render_interview_sidebar():
 
         col1, col2 = st.columns(2)
         with col1:
-            start_disabled = st.session_state.interview_started
+            start_disabled = st.session_state.interview_started or st.session_state.processing
             if st.button("▶️ Start", disabled=start_disabled, use_container_width=True, key="quick_start_btn"):
                 role_value = quick_role.strip()
                 if role_value:
-                    st.session_state.setup_mode = 'quick'
+                    st.session_state.setup_mode = "quick"
                     st.session_state.cv_text = f"Role: {role_value}"
                     st.session_state.jd_text = f"{role_value} position"
-                    start_interview()
+                    st.session_state.processing = True
+                    st.session_state.processing_mode = "setup"
+                    st.session_state.pending_start = True
+                    st.rerun()
                 else:
                     st.warning("Please enter a job role first, then click Start again.")
         with col2:
@@ -477,10 +727,18 @@ def render_interview_sidebar():
     with full_tab:
         st.markdown("*Upload your CV for tailored questions*")
 
+        full_role = st.text_input(
+            "Job Role",
+            value=st.session_state.job_role,
+            placeholder="e.g. Accountant, Admin Officer, Project Engineer...",
+            key="full_setup_job_role",
+        )
+        st.session_state.job_role = full_role
+
         uploaded_file = st.file_uploader(
             "Upload CV/Resume (PDF, Word, TXT)",
-            type=['pdf', 'docx', 'txt'],
-            key='cv_upload'
+            type=["pdf", "docx", "txt"],
+            key="cv_upload",
         )
 
         if uploaded_file:
@@ -495,12 +753,12 @@ def render_interview_sidebar():
 
         jd_text = st.text_area(
             "Job Description (Optional)",
-            value=st.session_state.jd_text if st.session_state.setup_mode == 'full' else '',
+            value=st.session_state.jd_text if st.session_state.setup_mode == "full" else "",
             height=120,
-            placeholder="Paste job requirements here..."
+            placeholder="Paste job requirements here...",
+            key="full_setup_jd",
         )
-        if jd_text:
-            st.session_state.jd_text = jd_text
+        st.session_state.jd_text = jd_text
 
         st.divider()
 
@@ -508,7 +766,7 @@ def render_interview_sidebar():
             "Seniority Level",
             SENIORITY_LEVELS,
             index=SENIORITY_LEVELS.index(st.session_state.seniority),
-            key="seniority_full"
+            key="seniority_full",
         )
         st.session_state.seniority = seniority_f
 
@@ -516,64 +774,97 @@ def render_interview_sidebar():
 
         col1, col2 = st.columns(2)
         with col1:
-            start_disabled = not st.session_state.cv_text or st.session_state.interview_started
+            start_disabled = (
+                not st.session_state.cv_text
+                or not st.session_state.job_role.strip()
+                or st.session_state.interview_started
+                or st.session_state.processing
+            )
+
             if st.button("▶️ Start", disabled=start_disabled, use_container_width=True, key="full_start_btn"):
-                st.session_state.setup_mode = 'full'
-                start_interview()
+                st.session_state.setup_mode = "full"
+
+                cv_for_interview = st.session_state.cv_text
+                if st.session_state.job_role.strip():
+                    cv_for_interview = f"Target Role: {st.session_state.job_role.strip()}\n\n{cv_for_interview}"
+
+                st.session_state.cv_text = cv_for_interview
+                st.session_state.processing = True
+                st.session_state.processing_mode = "setup"
+                st.session_state.pending_start = True
+                st.rerun()
+
         with col2:
             if st.button("🔄 Restart", use_container_width=True, key="full_restart_btn"):
                 reset_interview()
                 st.rerun()
 
-        if not st.session_state.cv_text:
+        if not st.session_state.job_role.strip():
+            st.info("👆 Enter the target job role.")
+        elif not st.session_state.cv_text:
             st.info("👆 Upload your CV to begin")
 
 
-def start_interview():
+def _start_interview_now():
     reset_interview()
     st.session_state.interview_started = True
+
+    role_text = st.session_state.job_role.strip() or (
+        st.session_state.cv_text.replace("Role: ", "").strip() if st.session_state.cv_text else "this role"
+    )
 
     try:
         result = get_first_question(
             st.session_state.cv_text,
             st.session_state.jd_text,
             st.session_state.seniority,
-            demo_mode=False
+            demo_mode=False,
         )
 
-        greeting = result.get('greeting', 'Welcome to your mock interview!')
-        first_question = result.get('question', 'Tell me about yourself.')
+        greeting = result.get("greeting", "Hello, thank you for interviewing today.")
+        first_question = result.get("question", "Tell me about yourself and your relevant experience.")
 
-        full_message = f"{greeting}\n\n**Question 1/{TOTAL_QUESTIONS}:** {first_question}"
-
-        st.session_state.messages.append({
-            'role': 'assistant',
-            'content': full_message
-        })
-        st.session_state.questions.append(first_question)
-        st.session_state.current_question_index = 1
-        st.session_state.awaiting_answer = True
-        st.session_state.auto_speak_question = first_question
+        if not first_question or not str(first_question).strip():
+            first_question = f"Why are you a good fit for the {role_text} role?"
 
     except Exception as e:
-        st.error(f"Failed to start interview: {str(e)}")
-        st.session_state.interview_started = False
+        st.warning(f"AI question generation failed. Using fallback question instead. Error: {str(e)}")
+        greeting = "Hello, thank you for interviewing today."
+        first_question = f"Why are you a good fit for the {role_text} role?"
 
+    safe_greeting = html.escape(greeting)
+    safe_question = html.escape(first_question)
 
-def process_answer(transcription: str):
-    st.session_state.processing = True
+    full_message = f"""
+<div class="question-card">
+    <div class="question-greeting">{safe_greeting}</div>
+    <div class="question-label">🎯 Question 1/{TOTAL_QUESTIONS}</div>
+    <div class="question-text">{safe_question}</div>
+</div>
+"""
 
     st.session_state.messages.append({
-        'role': 'user',
-        'content': transcription
+        "role": "assistant",
+        "content": full_message,
+    })
+    st.session_state.questions.append(first_question)
+    st.session_state.current_question_index = 1
+    st.session_state.awaiting_answer = True
+    st.session_state.auto_speak_question = first_question
+
+
+def _process_answer_now(transcription: str):
+    st.session_state.messages.append({
+        "role": "user",
+        "content": transcription,
     })
     st.session_state.answers.append(transcription)
 
     conversation_history = []
     for msg in st.session_state.messages[:-1]:
         conversation_history.append({
-            'role': msg['role'],
-            'content': msg['content']
+            "role": msg["role"],
+            "content": msg["content"],
         })
 
     try:
@@ -584,111 +875,201 @@ def process_answer(transcription: str):
             conversation_history,
             transcription,
             st.session_state.current_question_index,
-            demo_mode=False
+            demo_mode=False,
         )
 
-        score = result.get('score', 5)
-        justification = result.get('justification', '')
-        pro_tip = result.get('pro_tip', '')
-        next_question = result.get('next_question')
+        score = result.get("score", 5)
+        justification = result.get("justification", "No justification returned.")
+        pro_tip = result.get("pro_tip", "No pro tip returned.")
+        next_question = result.get("next_question")
 
         st.session_state.scores.append(score)
         st.session_state.tips.append(pro_tip)
         st.session_state.justifications.append(justification)
 
-        feedback_message = f"**Score: {score}/10**\n\n{justification}\n\n💡 **Pro Tip:** {pro_tip}"
+        feedback_message = f"""
+<div class="feedback-card">
+    <div class="feedback-score">⭐ Score: {score}/10</div>
+    <div class="feedback-body">{html.escape(justification)}</div>
+    <div class="tip-box">💡 <strong>Pro Tip:</strong> {html.escape(pro_tip)}</div>
+</div>
+"""
 
         is_last_question = st.session_state.current_question_index >= TOTAL_QUESTIONS
 
         if not is_last_question:
             if not next_question:
-                fallback_questions = [
-                    "Can you describe a challenging technical problem you solved and what approach you took?",
-                    "Tell me about a time you had to work under a tight deadline. How did you handle it?",
-                    "What is your approach to learning new technologies or tools?",
-                    "Describe a situation where you had a disagreement with a team member. How did you resolve it?",
-                    "How do you prioritize tasks when you have multiple competing deadlines?"
-                ]
-                q_idx = st.session_state.current_question_index % len(fallback_questions)
-                next_question = fallback_questions[q_idx]
+                raise ValueError("OpenAI did not return the next question.")
 
             st.session_state.current_question_index += 1
             st.session_state.has_recording = False
             st.session_state.recorded_audio = None
             st.session_state.recorder_version += 1
-            feedback_message += f"\n\n---\n\n**Next Question:**\n{next_question}"
-            st.session_state.questions.append(next_question)
             st.session_state.awaiting_answer = True
             st.session_state.auto_speak_question = next_question
+            st.session_state.questions.append(next_question)
+
+            safe_next_question = html.escape(next_question)
+
+            feedback_message += f"""
+<div class="next-question-divider"></div>
+<div class="next-question-card">
+    <div class="next-question-label">Next Question</div>
+    <p class="next-question-text">{safe_next_question}</p>
+</div>
+"""
         else:
             st.session_state.interview_completed = True
             st.session_state.awaiting_answer = False
-            feedback_message += "\n\n---\n\n🎉 **Interview Complete!** Click 'Generate Performance Report' below to get your detailed report."
+            feedback_message += """
+<hr />
+<p style="margin-top:16px; color:#2c3353; font-weight:700;">🎉 Interview Complete!</p>
+<p style="margin-top:6px; color:#677095;">Click 'Generate Performance Report' below to get your detailed report.</p>
+"""
 
         st.session_state.messages.append({
-            'role': 'assistant',
-            'content': feedback_message
+            "role": "assistant",
+            "content": feedback_message,
         })
 
     except Exception as e:
         st.session_state.messages.append({
-            'role': 'assistant',
-            'content': f"⚠️ There was an error evaluating your response. Please try again.\n\nError: {str(e)}"
+            "role": "assistant",
+            "content": f"⚠️ OpenAI evaluation failed.<br><br>Error: {html.escape(str(e))}",
         })
-        st.session_state.answers.pop()
         st.session_state.awaiting_answer = True
 
-    finally:
-        st.session_state.processing = False
+
+def run_pending_actions():
+    if st.session_state.pending_start:
+        st.session_state.pending_start = False
+        try:
+            _start_interview_now()
+        finally:
+            st.session_state.processing = False
+            st.session_state.processing_mode = ""
+        st.rerun()
+
+    if st.session_state.pending_audio_bytes is not None:
+        audio_bytes = st.session_state.pending_audio_bytes
+        st.session_state.pending_audio_bytes = None
+
+        try:
+            transcribed_text, error = speech_to_text(audio_bytes)
+
+            if error:
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": f"⚠️ Could not transcribe audio.<br><br>Error: {html.escape(error)}",
+                })
+                st.session_state.awaiting_answer = True
+            elif transcribed_text:
+                _process_answer_now(transcribed_text)
+            else:
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": "⚠️ No speech detected. Please try recording again.",
+                })
+                st.session_state.awaiting_answer = True
+
+        finally:
+            st.session_state.processing = False
+            st.session_state.processing_mode = ""
+        st.rerun()
+
+    if st.session_state.pending_text_answer:
+        pending_text = st.session_state.pending_text_answer
+        st.session_state.pending_text_answer = ""
+
+        try:
+            _process_answer_now(pending_text)
+        finally:
+            st.session_state.processing = False
+            st.session_state.processing_mode = ""
+        st.rerun()
+
+
+def render_processing_overlay():
+    if not st.session_state.processing:
+        return
+
+    if st.session_state.processing_mode == "setup":
+        icon = "🎯"
+        title = "Setting up your interview, please wait"
+        subtitle = "Preparing your greeting, generating your first question, and getting everything ready."
+        status_text = "Building your interview"
+    else:
+        icon = "🤖"
+        title = "Transcribing and evaluating your response, please wait"
+        subtitle = "Reviewing your answer, scoring it, generating your pro tip, and preparing the next question."
+        status_text = "Analyzing your response"
+
+    st.markdown(f"""
+    <div class="processing-overlay">
+        <div class="processing-modal">
+            <div class="processing-icon">{icon}</div>
+            <div class="processing-title">{title}</div>
+            <div class="processing-subtitle">{subtitle}</div>
+            <div class="processing-status">
+                {status_text}<span class="processing-dots"></span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_chat():
     question_idx = 0
+
     for message in st.session_state.messages:
-        with st.chat_message(message['role']):
-            st.markdown(message['content'])
-            if message['role'] == 'assistant' and 'Question' in message['content']:
-                if question_idx < len(st.session_state.questions):
-                    q_text = st.session_state.questions[question_idx]
-                    audio_key = f"tts_cache_{question_idx}"
-                    if audio_key in st.session_state:
-                        st.audio(st.session_state[audio_key], format="audio/wav")
+        with st.chat_message(message["role"]):
+            if message["role"] == "assistant":
+                st.markdown(message["content"], unsafe_allow_html=True)
+            else:
+                st.markdown(message["content"])
+
+            if message["role"] == "assistant" and question_idx < len(st.session_state.questions):
+                q_text = st.session_state.questions[question_idx]
+                audio_key = f"tts_cache_{question_idx}"
+                play_key = f"play_question_{question_idx}"
+
+                if st.button("🔊 Listen to Question", key=f"listen_{question_idx}"):
+                    if audio_key not in st.session_state:
+                        audio_bytes, error = text_to_speech(q_text)
+                        if audio_bytes:
+                            st.session_state[audio_key] = audio_bytes
+                            st.session_state[play_key] = True
+                            st.rerun()
+                        else:
+                            st.error(f"Could not generate audio: {error}")
                     else:
-                        if st.button("🔊 Listen to Question", key=f"listen_{question_idx}"):
-                            st.markdown("""
-                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-top: 4px;
-                                background: rgba(59,95,192,0.06); border-radius: 8px;">
-                                <div style="width: 8px; height: 8px; border-radius: 50%; background: #4a6fd0;
-                                    animation: pulse 1s ease-in-out infinite alternate;"></div>
-                                <span style="color: var(--text-loading); font-size: 0.9rem;">Generating audio...</span>
-                            </div>
-                            <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
-                            """, unsafe_allow_html=True)
-                            audio_bytes, error = text_to_speech(q_text)
-                            if audio_bytes:
-                                st.session_state[audio_key] = audio_bytes
-                                st.rerun()
-                            else:
-                                st.error(f"Could not generate audio: {error}")
-                    question_idx += 1
+                        st.session_state[play_key] = True
+                        st.rerun()
+
+                if audio_key in st.session_state:
+                    autoplay_now = st.session_state.get(play_key, False)
+                    st.audio(
+                        st.session_state[audio_key],
+                        format="audio/wav",
+                        autoplay=autoplay_now,
+                    )
+                    if autoplay_now:
+                        st.session_state[play_key] = False
+
+                question_idx += 1
 
     if st.session_state.auto_speak_question:
         question_text = st.session_state.auto_speak_question
-        st.session_state.auto_speak_question = ''
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px;
-            background: rgba(59,95,192,0.06); border-radius: 8px; margin: 8px 0;">
-            <div style="width: 8px; height: 8px; border-radius: 50%; background: #4a6fd0;
-                animation: pulse 1s ease-in-out infinite alternate;"></div>
-            <span style="color: var(--text-loading); font-size: 0.9rem;">Generating question audio...</span>
-        </div>
-        <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
-        """, unsafe_allow_html=True)
+        st.session_state.auto_speak_question = ""
+
         audio_bytes, error = text_to_speech(question_text)
         if audio_bytes:
             cache_idx = len(st.session_state.questions) - 1
             cache_key = f"tts_cache_{cache_idx}"
+            play_key = f"play_question_{cache_idx}"
+
             st.session_state[cache_key] = audio_bytes
+            st.session_state[play_key] = True
             st.audio(audio_bytes, format="audio/wav", autoplay=True)
 
 
@@ -697,39 +1078,17 @@ def finish_interview_button(key: str):
         st.session_state.interview_completed = True
         st.session_state.awaiting_answer = False
         st.session_state.messages.append({
-            'role': 'assistant',
-            'content': f"🎉 **Interview Finished!** You answered {len(st.session_state.answers)} out of {TOTAL_QUESTIONS} questions. Click 'Generate Performance Report' below to get your detailed report."
+            "role": "assistant",
+            "content": f"🎉 <strong>Interview Finished!</strong> You answered {len(st.session_state.answers)} out of {TOTAL_QUESTIONS} questions. Click 'Generate Performance Report' below to get your detailed report.",
         })
         st.rerun()
 
 
 def render_response_input():
-    if st.session_state.processing:
-        st.markdown("---")
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 12px; padding: 20px; 
-            background: linear-gradient(135deg, rgba(59,95,192,0.08), rgba(91,79,200,0.08)); 
-            border: 1px solid rgba(120,100,200,0.15); border-radius: 12px; margin: 16px 0;">
-            <div style="width: 12px; height: 12px; border-radius: 50%; background: #4a6fd0; 
-                animation: blink 1s ease-in-out infinite alternate;"></div>
-            <span style="color: var(--text-loading); font-size: 1.1rem; font-weight: 500;">
-                Processing your response... Please wait
-            </span>
-        </div>
-        <style>
-            @keyframes blink {
-                0% { opacity: 0.3; transform: scale(0.8); }
-                100% { opacity: 1; transform: scale(1.2); }
-            }
-        </style>
-        """, unsafe_allow_html=True)
-        return
-
-    if not st.session_state.awaiting_answer:
+    if st.session_state.processing or not st.session_state.awaiting_answer:
         return
 
     st.markdown("---")
-
     st.markdown(f"""
     <div class="response-header">
         <span style="font-size: 1.3rem; font-weight: 600; color: var(--text-primary);">
@@ -739,90 +1098,71 @@ def render_response_input():
     """, unsafe_allow_html=True)
 
     answer_key = f"answer_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
-    recorder_key = f"audio_recorder_{st.session_state.recorder_version}"
 
-    if st.session_state.preferred_input == 'text':
+    if st.session_state.preferred_input == "text":
         tab_text, tab_audio = st.tabs(["⌨️ Type Answer", "🎙️ Record Answer"])
     else:
         tab_audio, tab_text = st.tabs(["🎙️ Record Answer", "⌨️ Type Answer"])
 
     with tab_audio:
-        st.markdown("""
-        <div style="text-align: center; padding: 18px 20px 14px;
-            background: linear-gradient(160deg, #3b5fc0 0%, #4a8bd4 45%, #5ba3e0 100%);
-            border-radius: 16px; margin-bottom: 12px;">
-            <div style="font-size: 2.2rem; margin-bottom: 6px;">🎙️</div>
-            <div style="color: white; font-weight: 700; font-size: 1.05rem;
-                text-shadow: 0 1px 3px rgba(0,0,0,0.2); margin-bottom: 4px;">
-                Tap the mic button to <span style="color: #a8ff78;">START</span> recording
-            </div>
-            <div style="color: rgba(255,255,255,0.8); font-size: 0.85rem;">
-                Tap it again to <span style="color: #ff8a80; font-weight: 600;">STOP</span> · The button turns <span style="color: #ff6b6b; font-weight: 600;">red</span> while recording
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.session_state.preferred_input = "audio"
 
-        audio_bytes = audio_recorder(
-            text="",
-            recording_color="#e74c3c",
-            neutral_color="#4a6fd0",
-            icon_size="3x",
-            pause_threshold=30.0,
-            key=recorder_key
-        )
+        st.markdown("### Record your answer")
+        st.caption("Record your answer, then preview and submit.")
 
-        if audio_bytes:
-            st.session_state.recorded_audio = audio_bytes
-            st.session_state.has_recording = True
+        if not st.session_state.has_recording:
+            audio_file = st.audio_input(
+                "Tap to record",
+                key=f"audio_input_q{st.session_state.current_question_index}_v{st.session_state.get('recorder_version', 0)}",
+            )
 
-        if st.session_state.has_recording and st.session_state.get('recorded_audio'):
+            if audio_file is not None:
+                st.session_state.recorded_audio = audio_file.read()
+                st.session_state.has_recording = True
+                st.rerun()
+
+        if st.session_state.has_recording and st.session_state.recorded_audio:
             stored_audio = st.session_state.recorded_audio
 
             st.markdown("""
-            <div style="background: rgba(39,174,96,0.08); border: 1px solid rgba(39,174,96,0.2); 
-                border-radius: 12px; padding: 12px 16px; margin: 12px 0;">
-                <span style="color: #27ae60; font-weight: 600;">✅ Recording captured!</span>
+            <div style="background: rgba(59,178,115,0.08); border: 1px solid rgba(59,178,115,0.18);
+                border-radius: 14px; padding: 12px 16px; margin: 12px 0;">
+                <span style="color: #2f9d63; font-weight: 700;">✅ Recording captured!</span>
                 <span style="color: var(--text-secondary);"> Preview below, then submit or re-record.</span>
             </div>
             """, unsafe_allow_html=True)
 
             st.audio(stored_audio, format="audio/wav")
 
-            if st.button("🎤 Submit Audio Answer", type="primary", use_container_width=True,
-                         key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
-                st.session_state.processing = True
-                st.markdown("""
-                <div style="display: flex; align-items: center; gap: 12px; padding: 16px; 
-                    background: linear-gradient(135deg, rgba(59,95,192,0.08), rgba(91,79,200,0.08)); 
-                    border: 1px solid rgba(120,100,200,0.15); border-radius: 12px; margin: 8px 0;">
-                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #4a6fd0; 
-                        animation: pulse 1s ease-in-out infinite alternate;"></div>
-                    <span style="color: var(--text-loading); font-weight: 500;">
-                        Transcribing and evaluating your response...
-                    </span>
-                </div>
-                <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
-                """, unsafe_allow_html=True)
-                transcribed_text, error = speech_to_text(stored_audio)
-                if error:
-                    st.session_state.processing = False
-                    st.error(f"Could not transcribe audio: {error}")
-                elif transcribed_text:
-                    st.info(f"**Transcribed:** {transcribed_text}")
+            col_submit, col_rerecord = st.columns(2)
+
+            with col_submit:
+                if st.button(
+                    "🎤 Submit Audio Answer",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"audio_submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}",
+                ):
                     st.session_state.has_recording = False
                     st.session_state.recorded_audio = None
-                    process_answer(transcribed_text)
+                    st.session_state.recorder_version += 1
+                    st.session_state.processing = True
+                    st.session_state.processing_mode = "answer"
+                    st.session_state.pending_audio_bytes = stored_audio
                     st.rerun()
-                else:
-                    st.session_state.processing = False
-                    st.warning("No speech detected. Please try recording again.")
 
-            if st.button("🔄 Re-record", use_container_width=True,
-                         key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}"):
-                st.session_state.recorder_version += 1
-                st.session_state.has_recording = False
-                st.session_state.recorded_audio = None
-                st.rerun()
+            with col_rerecord:
+                if st.button(
+                    "🔄 Re-record",
+                    use_container_width=True,
+                    key=f"rerecord_{st.session_state.current_question_index}_{len(st.session_state.answers)}",
+                ):
+                    st.session_state.has_recording = False
+                    st.session_state.recorded_audio = None
+                    st.session_state.recorder_version += 1
+                    st.rerun()
+        else:
+            st.info("Recorder is ready.")
 
         if len(st.session_state.answers) >= 1:
             finish_interview_button(f"finish_audio_{st.session_state.current_question_index}")
@@ -832,33 +1172,23 @@ def render_response_input():
             "Type your answer here",
             key=answer_key,
             height=200,
-            placeholder="Take your time and provide a detailed response..."
+            placeholder="Take your time and provide a detailed response...",
         )
 
         submit_key = f"submit_{st.session_state.current_question_index}_{len(st.session_state.answers)}"
 
         if st.button("📝 Submit Text Answer", type="primary", key=submit_key, use_container_width=True):
             if text_answer.strip():
-                st.session_state.preferred_input = 'text'
+                st.session_state.preferred_input = "text"
                 st.session_state.processing = True
-                st.markdown("""
-                <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-top: 8px;
-                    background: linear-gradient(135deg, rgba(59,95,192,0.08), rgba(91,79,200,0.08));
-                    border: 1px solid rgba(120,100,200,0.15); border-radius: 10px;">
-                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #4a6fd0;
-                        animation: pulse 1s ease-in-out infinite alternate;"></div>
-                    <span style="color: var(--text-loading); font-weight: 500;">Evaluating your response...</span>
-                </div>
-                <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
-                """, unsafe_allow_html=True)
-                process_answer(text_answer)
+                st.session_state.processing_mode = "answer"
+                st.session_state.pending_text_answer = text_answer.strip()
                 st.rerun()
             else:
                 st.warning("Please enter your answer before submitting.")
 
         if len(st.session_state.answers) >= 1:
             finish_interview_button(f"finish_text_{st.session_state.current_question_index}")
-
 
 
 def render_final_report():
@@ -871,10 +1201,11 @@ def render_final_report():
         avg_score = sum(st.session_state.scores) / len(st.session_state.scores)
 
         st.markdown("""
-        <div style="background: linear-gradient(135deg, rgba(59,95,192,0.06), rgba(91,79,200,0.06)); 
-            border: 1px solid rgba(120,100,200,0.12); border-radius: 16px; padding: 24px; margin-bottom: 20px;">
-            <h2 style="color: var(--text-hero-title); margin: 0 0 8px 0;">📋 Your Interview Performance Report</h2>
-            <p style="color: var(--text-secondary); margin: 0;">Personalized analysis based on your interview</p>
+        <div style="background: rgba(255,255,255,0.72);
+            border: 1px solid rgba(123,132,176,0.16); border-radius: 20px; padding: 24px; margin-bottom: 20px;
+            box-shadow: 0 10px 26px rgba(98,109,153,0.08);">
+            <h2 style="color: #2c3353; margin: 0 0 8px 0;">📋 Your Interview Performance Report</h2>
+            <p style="color: #677095; margin: 0;">Personalized analysis based on your interview</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -894,16 +1225,6 @@ def render_final_report():
         return
 
     if st.button("📊 Generate Performance Report", type="primary", use_container_width=True):
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 10px; padding: 14px 18px; margin-top: 8px;
-            background: linear-gradient(135deg, rgba(59,95,192,0.08), rgba(91,79,200,0.08));
-            border: 1px solid rgba(120,100,200,0.15); border-radius: 10px;">
-            <div style="width: 10px; height: 10px; border-radius: 50%; background: #4a6fd0;
-                animation: pulse 1s ease-in-out infinite alternate;"></div>
-            <span style="color: var(--text-loading); font-weight: 500;">Analyzing your interview performance...</span>
-        </div>
-        <style>@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }</style>
-        """, unsafe_allow_html=True)
         try:
             report = generate_final_report(
                 st.session_state.cv_text,
@@ -913,7 +1234,7 @@ def render_final_report():
                 st.session_state.answers,
                 st.session_state.scores,
                 st.session_state.tips,
-                demo_mode=False
+                demo_mode=False,
             )
 
             st.session_state.report_generated = True
@@ -932,7 +1253,7 @@ def render_final_report():
                 tips=st.session_state.tips,
                 justifications=st.session_state.justifications,
                 report=report,
-                avg_score=avg_score
+                avg_score=avg_score,
             )
 
             st.rerun()
@@ -942,9 +1263,6 @@ def render_final_report():
 
 
 def get_user_timezone():
-    if 'user_tz' not in st.session_state:
-        st.session_state.user_tz = None
-
     if st.session_state.user_tz is None:
         tz_param = st.query_params.get("tz")
         if tz_param:
@@ -958,23 +1276,37 @@ def get_user_timezone():
 def format_interview_time(dt, tz_name):
     if not dt:
         return "Unknown"
+
     try:
+        if isinstance(dt, str):
+            dt = dt.strip()
+            if dt.endswith("Z"):
+                dt = dt.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(dt)
+
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
+
         user_tz = ZoneInfo(tz_name)
         local_dt = dt.astimezone(user_tz)
         return local_dt.strftime("%B %d, %Y at %I:%M %p")
+
     except Exception:
-        return dt.strftime("%B %d, %Y at %I:%M %p")
+        try:
+            return str(dt)
+        except Exception:
+            return "Unknown"
 
 
 def render_history_page():
     st.title("📜 Interview History")
-    st.markdown(f'<p style="color: var(--text-secondary);">Past interviews for <strong style="color: var(--text-accent);">{st.session_state.username}</strong></p>', unsafe_allow_html=True)
+    st.markdown(
+        f'<p style="color: var(--text-secondary);">Past interviews for <strong style="color: var(--primary-3);">{st.session_state.username}</strong></p>',
+        unsafe_allow_html=True,
+    )
     st.markdown("---")
 
     user_tz = get_user_timezone()
-
     interviews = get_user_interviews(st.session_state.user_id)
 
     if not interviews:
@@ -982,7 +1314,7 @@ def render_history_page():
         return
 
     for i, interview in enumerate(interviews):
-        created = format_interview_time(interview["created_at"], user_tz) if user_tz else (interview["created_at"].strftime("%B %d, %Y at %I:%M %p") if interview["created_at"] else "Unknown")
+        created = format_interview_time(interview["created_at"], user_tz)
         avg = interview["avg_score"] or 0
         mode = "Demo" if interview["demo_mode"] else "AI"
         label = f"**{created}** — Score: {avg:.1f}/10 — {interview['seniority']} level — {mode} Mode"
@@ -1018,9 +1350,25 @@ def render_history_page():
                     st.markdown(f"💡 **Pro Tip:** {tips[j]}")
                 st.markdown("---")
 
-            if interview["report"]:
+            if interview.get("report"):
                 st.markdown("### 📋 Feedback Report")
                 st.markdown(interview["report"])
+
+
+def _safe_to_datetime(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        value = value.strip()
+        if value.endswith("Z"):
+            value = value.replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+    return None
 
 
 def render_admin_page():
@@ -1051,15 +1399,17 @@ def render_admin_page():
     scores_flat = [iv["avg_score"] for iv in all_interviews if iv["avg_score"] is not None]
     platform_avg = round(sum(scores_flat) / len(scores_flat), 2) if scores_flat else 0
 
-    from datetime import datetime, timedelta, timezone as tz_module
-    now_utc = datetime.now(tz_module.utc)
+    now_utc = datetime.now(timezone.utc)
     week_ago = now_utc - timedelta(days=7)
-    interviews_this_week = sum(
-        1 for iv in all_interviews
-        if iv["created_at"] and (
-            iv["created_at"].replace(tzinfo=tz_module.utc) if iv["created_at"].tzinfo is None else iv["created_at"]
-        ) >= week_ago
-    )
+    interviews_this_week = 0
+
+    for iv in all_interviews:
+        dt = _safe_to_datetime(iv.get("created_at"))
+        if dt:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt >= week_ago:
+                interviews_this_week += 1
 
     m1, m2, m3, m4 = st.columns(4)
     with m1:
@@ -1105,11 +1455,12 @@ def render_admin_page():
     st.subheader("Interviews Over Time (Daily)")
     dates = []
     for iv in all_interviews:
-        if iv["created_at"]:
-            dt = iv["created_at"]
+        dt = _safe_to_datetime(iv.get("created_at"))
+        if dt:
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=tz_module.utc)
+                dt = dt.replace(tzinfo=timezone.utc)
             dates.append(dt.date())
+
     if dates:
         date_counts = {}
         for d in dates:
@@ -1124,11 +1475,12 @@ def render_admin_page():
     if len(all_interviews) >= 2:
         score_date_rows = []
         for iv in all_interviews:
-            if iv["created_at"] and iv["avg_score"] is not None:
-                dt = iv["created_at"]
+            dt = _safe_to_datetime(iv.get("created_at"))
+            if dt and iv["avg_score"] is not None:
                 if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=tz_module.utc)
+                    dt = dt.replace(tzinfo=timezone.utc)
                 score_date_rows.append({"Date": dt.date(), "avg_score": iv["avg_score"]})
+
         if score_date_rows:
             score_time_df = pd.DataFrame(score_date_rows).sort_values("Date")
             score_time_df = score_time_df.groupby("Date")["avg_score"].mean().reset_index()
@@ -1143,9 +1495,13 @@ def render_admin_page():
         cv = iv.get("cv_text") or ""
         if cv.startswith("Role: "):
             role = cv.replace("Role: ", "").strip()
+        elif cv.startswith("Target Role: "):
+            first_line = cv.splitlines()[0]
+            role = first_line.replace("Target Role: ", "").strip()
         else:
             role = "Custom CV"
         role_counts[role] = role_counts.get(role, 0) + 1
+
     sorted_roles = sorted(role_counts.items(), key=lambda x: x[1], reverse=True)[:10]
     if sorted_roles:
         role_df = pd.DataFrame(sorted_roles, columns=["Role", "Interviews"]).set_index("Role")
@@ -1155,9 +1511,10 @@ def render_admin_page():
     st.subheader("User Summary")
     user_rows = []
     for u in all_users:
+        joined_dt = _safe_to_datetime(u.get("created_at"))
         user_rows.append({
             "Username": u["username"],
-            "Joined": u["created_at"].strftime("%Y-%m-%d") if u["created_at"] else "",
+            "Joined": joined_dt.strftime("%Y-%m-%d") if joined_dt else "",
             "Interviews": int(u["interview_count"] or 0),
             "Avg Score": float(u["avg_score"]) if u["avg_score"] is not None else None,
         })
@@ -1179,9 +1536,11 @@ def render_admin_page():
     st.caption(f"Showing {len(filtered)} of {total_interviews} interviews")
 
     for i, iv in enumerate(filtered):
-        created_str = iv["created_at"].strftime("%Y-%m-%d %H:%M") if iv["created_at"] else "Unknown"
+        created_dt = _safe_to_datetime(iv.get("created_at"))
+        created_str = created_dt.strftime("%Y-%m-%d %H:%M") if created_dt else "Unknown"
         avg = iv["avg_score"] or 0
         label = f"**{iv['username']}** — {created_str} — {iv['seniority']} — Score: {avg:.1f}/10"
+
         with st.expander(label, expanded=False):
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -1195,6 +1554,12 @@ def render_admin_page():
             cv = iv.get("cv_text") or ""
             if cv.startswith("Role: "):
                 st.markdown(f"**Role (Quick Start):** {cv.replace('Role: ', '').strip()}")
+            elif cv.startswith("Target Role: "):
+                first_line = cv.splitlines()[0]
+                st.markdown(f"**Target Role:** {first_line.replace('Target Role: ', '').strip()}")
+                with st.expander("View CV Text"):
+                    cv_body = "\n".join(cv.splitlines()[2:]) if len(cv.splitlines()) > 2 else ""
+                    st.text(cv_body[:1000] + ("..." if len(cv_body) > 1000 else ""))
             else:
                 with st.expander("View CV Text"):
                     st.text(cv[:1000] + ("..." if len(cv) > 1000 else ""))
@@ -1235,16 +1600,27 @@ def render_admin_page():
         st.markdown("**Summary Export** — One row per interview")
         summary_rows = []
         for iv in all_interviews:
+            created_dt = _safe_to_datetime(iv.get("created_at"))
+            cv = iv.get("cv_text") or ""
+
+            if cv.startswith("Role: "):
+                role = cv.replace("Role: ", "").strip()
+            elif cv.startswith("Target Role: "):
+                role = cv.splitlines()[0].replace("Target Role: ", "").strip()
+            else:
+                role = "Custom CV"
+
             summary_rows.append({
                 "interview_id": iv["id"],
                 "username": iv["username"],
-                "date": iv["created_at"].strftime("%Y-%m-%d %H:%M") if iv["created_at"] else "",
+                "date": created_dt.strftime("%Y-%m-%d %H:%M") if created_dt else "",
                 "seniority": iv["seniority"],
                 "avg_score": iv["avg_score"],
                 "performance": "Excellent" if (iv["avg_score"] or 0) >= 8 else "Good" if (iv["avg_score"] or 0) >= 6 else "Needs Work",
-                "role": (iv.get("cv_text") or "").replace("Role: ", "").strip() if (iv.get("cv_text") or "").startswith("Role: ") else "Custom CV",
+                "role": role,
                 "has_report": bool(iv.get("report")),
             })
+
         summary_df = pd.DataFrame(summary_rows)
         csv_summary = summary_df.to_csv(index=False).encode("utf-8")
         st.download_button(
@@ -1259,15 +1635,17 @@ def render_admin_page():
         st.markdown("**Full Q&A Export** — One row per question/answer")
         qa_rows = []
         for iv in all_interviews:
+            created_dt = _safe_to_datetime(iv.get("created_at"))
             questions = iv["questions"] or []
             answers = iv["answers"] or []
             scores = iv["scores"] or []
             tips = iv["tips"] or []
+
             for j in range(len(questions)):
                 qa_rows.append({
                     "interview_id": iv["id"],
                     "username": iv["username"],
-                    "date": iv["created_at"].strftime("%Y-%m-%d %H:%M") if iv["created_at"] else "",
+                    "date": created_dt.strftime("%Y-%m-%d %H:%M") if created_dt else "",
                     "seniority": iv["seniority"],
                     "avg_score": iv["avg_score"],
                     "question_num": j + 1,
@@ -1276,6 +1654,7 @@ def render_admin_page():
                     "score": scores[j] if j < len(scores) else "",
                     "tip": tips[j] if j < len(tips) else "",
                 })
+
         qa_df = pd.DataFrame(qa_rows)
         csv_qa = qa_df.to_csv(index=False).encode("utf-8")
         st.download_button(
@@ -1291,13 +1670,18 @@ def render_interview_page():
     st.markdown('<h1 style="margin-bottom: 0;"><span style="font-size: 1.1em;">🎯</span> AI Mock Interview</h1>', unsafe_allow_html=True)
     st.markdown('<p style="color: var(--text-secondary); font-size: 1.1rem;">Practice your interview skills with AI-powered coaching</p>', unsafe_allow_html=True)
 
+    if st.session_state.processing:
+        render_processing_overlay()
+        run_pending_actions()
+        return
+
     if not st.session_state.interview_started:
         st.markdown("---")
 
         st.markdown("""
         <div class="hero-card">
-            <h3 style="color: var(--text-hero-title) !important; margin-top: 0;">Welcome! 👋</h3>
-            <p style="color: var(--text-hero-body);">Get ready to ace your next interview with personalized AI coaching.</p>
+            <h3 style="color: var(--text-primary) !important; margin-top: 0;">Welcome! 👋</h3>
+            <p style="color: var(--text-secondary);">Get ready to ace your next interview with personalized AI coaching.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1306,7 +1690,7 @@ def render_interview_page():
             st.markdown("""
             **How it works:**
             1. ⚡ **Quick Start**: Enter a role + seniority in the sidebar
-            2. *Or* 📄 **Full Setup**: Upload CV + job description
+            2. *Or* 📄 **Full Setup**: Enter target role + upload CV + job description
             3. ▶️ Click "Start" to begin
             4. ✍️ Answer the interview question
             5. 📊 Get instant feedback and a final report
@@ -1315,6 +1699,7 @@ def render_interview_page():
             st.markdown("""
             **Features:**
             - ⚡ **Quick Start**: No CV needed — just pick a role
+            - 🎯 **Targeted Full Setup**: Uses Job Role + CV + JD
             - 📈 **Instant Scoring**: 0-10 on your answer
             - 💡 **Pro Tips**: Actionable advice
             - 📋 **Final Report**: Feedback with practice plan
@@ -1330,7 +1715,7 @@ def main():
     st.set_page_config(
         page_title="AI Mock Interview",
         page_icon="🎯",
-        layout="wide"
+        layout="wide",
     )
 
     inject_custom_css()
@@ -1343,9 +1728,10 @@ def main():
 
     render_sidebar()
 
-    if st.session_state.page == 'history':
+
+    if st.session_state.page == "history":
         render_history_page()
-    elif st.session_state.page == 'admin' and st.session_state.username == ADMIN_USERNAME:
+    elif st.session_state.page == "admin" and is_admin_user(st.session_state.username):
         render_admin_page()
     else:
         render_interview_page()
