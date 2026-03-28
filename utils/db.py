@@ -507,3 +507,9 @@ def get_user_interviews(user_id: int) -> list:
 
     except Exception:
         return []
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
